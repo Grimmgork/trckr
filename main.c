@@ -12,27 +12,7 @@ int cmd_start(int offs, int argc, char *argv[]);
 int cmd_started(int offs, int argc, char *argv[]);
 int cmd_status(int offs, int argc, char *argv[]);
 
-int resolve_type_name(char * arg);
-
-void
-exerrctx(char *context) 
-{
-	if(errno == 0){
-		errno = -1;
-	}
-	perror(context);
-	exit(errno);
-}
-
-void
-exerr()
-{
-	if(errno == 0){
-		errno = -1;
-	}
-	perror("An error occured: ");
-	exit(errno);
-}
+struct trckr_ctx *g_trckr;
 
 int
 main(int argc, char *argv[])
@@ -40,31 +20,40 @@ main(int argc, char *argv[])
 	int offs = 1;
 	if(offs >= argc) {
 		THROW(22)
-		return 1;
+		return errno;
 	}
+
+	g_trckr = trckr_init("/data.db");
+	if (ERROR) {
+		return errno;
+	}
+
+	char *command = argv[offs];
+	offs++;
 
 	// status
-	if (!strcmp(argv[offs], "status")) {
-		offs++;
-		return cmd_status(offs, argc, argv);
+	if (!strcmp(command, "status")) {
+		cmd_status(offs, argc, argv);
 	}
-
+	else
 	// start [type]
-	if (!strcmp(argv[offs], "start")) {
-		offs++;
-		return cmd_start(offs, argc, argv);
+	if (!strcmp(command, "start")) {
+		cmd_start(offs, argc, argv);
 	}
-
+	else
 	// started [type] [time]
-	if (!strcmp(argv[offs], "started")) {
-		offs++;
-		return cmd_started(offs, argc, argv);
+	if (!strcmp(command, "started")) {
+		cmd_started(offs, argc, argv);
 	}
-	
-	return -1;
+
+	trckr_dispose(g_trckr);
+
+	if(ERROR){
+		perror("An error occured: ");
+	}
+
+	return errno;
 }
-
-
 
 int
 cmd_status(int offs, int argc, char *argv[])
@@ -79,16 +68,17 @@ cmd_start(int offs, int argc, char *argv[])
 	// check for enough arguments
 	if (offs >= argc) {
 		THROW(22)
-		exerr();
+		return -1;
 	}
 
 	// resolve type ref by its name
-	int typeid = resolve_type_name(argv[offs]);
+	int typeid = trckr_get_type_by_name(g_trckr, argv[offs]);
 	if (ERROR) {
-		exerrctx("could not resolve type");
+		THROW(22)
+		return -1;
 	}
 
-	return trckr_start(typeid);
+	return trckr_start(g_trckr, typeid);
 }
 
 int
@@ -97,29 +87,22 @@ cmd_started(int offs, int argc, char *argv[])
 	// check for enough arguments
 	if (offs+1 >= argc) {
 		THROW(22)
-		exerr();
+		return -1;
 	}
 
 	// get type by name
-	int typeid = resolve_type_name(argv[offs]);
+	int typeid = trckr_get_type_by_name(g_trckr, argv[offs]);
 	if (ERROR) {
-		exerrctx("could not parse type");
+		return -1;
 	}
 
 	// parse time input
 	time_t time = unixtime_from_args(argv, offs+1, argc);
 	if (ERROR) {
-		exerrctx("could not parse time");
+		return -1;
 	}
 
-	return trckr_started(typeid, time);
-}
-
-
-int resolve_type_name(char * arg)
-{
-	// parse alias from config
-	return trckr_get_type_by_name(argv[offs]);
+	return trckr_started(g_trckr, typeid, time);
 }
 
 

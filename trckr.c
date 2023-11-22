@@ -1,40 +1,30 @@
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h> 
 #include <time.h>
 #include "data.c"
 #include "error.c"
 
-int
-trckr_init()
+struct trckr_ctx
 {
-	
-}
+	struct data_ctx *data;
+};
 
-int
-trckr_get_type_by_name(char *arg)
+struct trckr_ctx
+*trckr_init(char *dbpath)
 {
-	return data_get_type_by_name(arg);
-}
-
-int
-trckr_get_open_work()
-{
-	int id = data_get_open_work();
-	if (ERROR) {
-		return -1;
+	struct trckr_ctx *context = malloc(sizeof(struct trckr_ctx));
+	context->data = data_init(dbpath);
+	if(ERROR) {
+		return NULL;
 	}
-	return id;
+	return context;
 }
 
 int
-trckr_start(int typeid)
+trckr_dispose(struct trckr_ctx *context)
 {
-	data_get_open_work();
-	if(ERROR && !ISERR(ERR_NOOPENWORK)) {
-		return -1;
-	}
-	ERRRS
-	data_create_work(typeid, time(NULL));
+	data_dispose(context->data);
 	if(ERROR) {
 		return -1;
 	}
@@ -42,13 +32,44 @@ trckr_start(int typeid)
 }
 
 int
-trckr_stop()
+trckr_get_type_by_name(struct trckr_ctx *context, char *arg)
 {
-	int id = data_get_open_work();
+	return data_get_type_by_name(context->data, arg);
+}
+
+int
+trckr_get_open_work(struct trckr_ctx *context)
+{
+	int id = data_get_open_work(context->data);
 	if (ERROR) {
 		return -1;
 	}
-	data_stop_work(id, time(NULL));
+	return id;
+}
+
+int
+trckr_start(struct trckr_ctx *context, int typeid)
+{
+	data_get_open_work(context->data);
+	if(ERROR && !ISERR(ERR_NOOPENWORK)) {
+		return -1;
+	}
+	ERRRS
+	data_create_work(context->data, typeid, time(NULL));
+	if(ERROR) {
+		return -1;
+	}
+	return 0;
+}
+
+int
+trckr_stop(struct trckr_ctx *context)
+{
+	int id = data_get_open_work(context->data);
+	if (ERROR) {
+		return -1;
+	}
+	data_stop_work(context->data, id, time(NULL));
 	if (ERROR) {
 		return -1;
 	}
@@ -56,14 +77,14 @@ trckr_stop()
 }
 
 int
-trckr_switch(int typeid)
+trckr_switch(struct trckr_ctx *context, int typeid)
 {
 	time_t now = time(NULL);
-	data_stop_work(data_get_open_work(), now);
+	data_stop_work(context->data, data_get_open_work(context->data), now);
 	if (ERROR) {
 		return -1;
 	}
-	int id = data_create_work(typeid, now);
+	int id = data_create_work(context->data, typeid, now);
 	if (ERROR) {
 		return -1;
 	}
@@ -71,9 +92,9 @@ trckr_switch(int typeid)
 }
 
 int
-trckr_started(int typeid, time_t time)
+trckr_started(struct trckr_ctx *context, int typeid, time_t time)
 {
-	data_get_open_work();
+	data_get_open_work(context->data);
 	if (NOERR) {
 		THROW(ERR_OPENWORK)
 		return -1;
@@ -82,7 +103,7 @@ trckr_started(int typeid, time_t time)
 		return -1;
 	}
 	ERRRS
-	data_create_work(typeid, time);
+	data_create_work(context->data, typeid, time);
 	if (ERROR) {
 		return -1;
 	}
@@ -90,26 +111,26 @@ trckr_started(int typeid, time_t time)
 }
 
 int
-trckr_stopped(time_t time)
+trckr_stopped(struct trckr_ctx *context, time_t time)
 {
-	int workid = data_get_open_work();
+	int workid = data_get_open_work(context->data);
 	if (ERROR) {
 		return -1;
 	}
-	data_stop_work(workid, time);
+	data_stop_work(context->data, workid, time);
 	if(ERROR) {
 		return -1;
 	}
 }
 
 int
-trckr_print_status()
+trckr_print_status(struct trckr_ctx *context)
 {
 
 }
 
 int
-trcker_print_report(time_t start, time_t end)
+trcker_print_report(struct trckr_ctx *context, time_t start, time_t end)
 {
 
 }

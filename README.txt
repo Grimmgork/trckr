@@ -68,3 +68,11 @@ today		// today
 # error handling
 - return NULL or -1;
 - set errno;
+
+
+# config
+key, value
+format 1
+alias_asd 1
+alias_sdf 2
+alias_cfd 3
