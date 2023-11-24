@@ -12,3 +12,6 @@
 #define ERR_NOOPENWORK -13
 #define ERR_OPENWORK -14
 #define ERR_DBOP -15
+#define ERR_TYPEEXISTS -16
+#define ERR_SQLPREP -17
+#define ERR_NOTIMPLEMENTED -18

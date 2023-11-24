@@ -11,8 +11,19 @@ time_t unixtime_from_args(char *argv[], int i, int l);
 int cmd_start(int offs, int argc, char *argv[]);
 int cmd_started(int offs, int argc, char *argv[]);
 int cmd_status(int offs, int argc, char *argv[]);
+int cmd_add(int offs, int argc, char *argv[]);
+int cmd_stop(int offs, int argc, char *argv[]);
 
 struct trckr_ctx *g_trckr;
+
+void printerror() {
+	if(errno > 0) {
+		perror("ERROR");
+		return;
+	}
+	// Custom error
+	fprintf(stderr, "ERROR: %i\n", errno);
+}
 
 int
 main(int argc, char *argv[])
@@ -20,38 +31,49 @@ main(int argc, char *argv[])
 	int offs = 1;
 	if(offs >= argc) {
 		THROW(22)
+		printerror();
 		return errno;
 	}
 
-	g_trckr = trckr_init("/data.db");
+	g_trckr = trckr_init("data.db");
 	if (ERROR) {
+		printerror();
 		return errno;
 	}
 
 	char *command = argv[offs];
 	offs++;
 
+	int res = -1;
 	// status
 	if (!strcmp(command, "status")) {
-		cmd_status(offs, argc, argv);
+		res = cmd_status(offs, argc, argv);
 	}
 	else
 	// start [type]
 	if (!strcmp(command, "start")) {
-		cmd_start(offs, argc, argv);
+		res = cmd_start(offs, argc, argv);
 	}
 	else
 	// started [type] [time]
 	if (!strcmp(command, "started")) {
-		cmd_started(offs, argc, argv);
+		res = cmd_started(offs, argc, argv);
+	}
+	else
+	// add type [name] [description]
+	if (!strcmp(command, "add")) {
+		res = cmd_add(offs, argc, argv);
+	}
+	// add stop
+	else
+	if (!strcmp(command, "stop")) {
+		res = cmd_stop(offs, argc, argv);
 	}
 
 	trckr_dispose(g_trckr);
-
-	if(ERROR){
-		perror("An error occured: ");
+	if(res != 0){
+		printerror();
 	}
-
 	return errno;
 }
 
@@ -74,11 +96,26 @@ cmd_start(int offs, int argc, char *argv[])
 	// resolve type ref by its name
 	int typeid = trckr_get_type_by_name(g_trckr, argv[offs]);
 	if (ERROR) {
-		THROW(22)
+		THROW(-10)
 		return -1;
 	}
 
-	return trckr_start(g_trckr, typeid);
+	int result = trckr_start(g_trckr, typeid);
+	if (result < 0) {
+		return -1;
+	}
+	
+	return 0;
+}
+
+int
+cmd_stop(int offs, int argc, char *argv[])
+{
+	int res = trckr_stop(g_trckr);
+	if (res < 0) {
+		return -1;
+	}
+	return 0;
 }
 
 int
@@ -93,6 +130,7 @@ cmd_started(int offs, int argc, char *argv[])
 	// get type by name
 	int typeid = trckr_get_type_by_name(g_trckr, argv[offs]);
 	if (ERROR) {
+		THROW(-10)
 		return -1;
 	}
 
@@ -103,6 +141,24 @@ cmd_started(int offs, int argc, char *argv[])
 	}
 
 	return trckr_started(g_trckr, typeid, time);
+}
+
+int 
+cmd_add(int offs, int argc, char *argv[])
+{
+	// check for enough arguments
+	if (offs+2 >= argc) {
+		THROW(22)
+		return -1;
+	}
+	char *obj = argv[offs];
+	if (!strcmp(obj, "type")) {
+		trckr_create_type(g_trckr, argv[offs+1], argv[offs+2]);
+		return 0;
+	}
+
+	THROW(22)
+	return -1;
 }
 
 
