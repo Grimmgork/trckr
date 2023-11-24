@@ -154,13 +154,45 @@ trckr_create_type(struct trckr_ctx * context, char *name, char *description)
 }
 
 int
-trckr_print_status(struct trckr_ctx *context)
+trckr_print_status(struct trckr_ctx *context, FILE *fd)
 {
+	int id = data_get_open_work(context->data);
+	if (id < 0) {
+		if (ISERR(ERR_NOOPENWORK)) {
+			fprintf(fd, "work:\tNONE\n");
+			return 0;
+		}
+		else	{
+			return -1;
+		}
+	}
+	struct data_work *work = data_get_work_by_id(context->data, id);
+	if (work == NULL) {
+		return -1;
+	}
 
+	struct data_type *type = data_get_type_by_id(context->data, work->type_id);
+	if(type == NULL) {
+		return -1;
+	}
+
+	fprintf(fd, "work:\t%s\n", type->name);
+	fprintf(fd, "start:\t%s\n", type->description);
+
+	free(work);
+	return 0;
+
+	// work:	NONE
+ 
+	// work:	mcs-nico
+	// start:	today 10:30
+
+	// work:	mcs-nico
+	// start:	yesterday 10:30
 }
 
 int
-trcker_print_report(struct trckr_ctx *context, time_t start, time_t end)
+trcker_print_report(struct trckr_ctx *context, FILE *fd, time_t start, time_t end)
 {
-
+	return 0;
 }

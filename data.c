@@ -7,6 +7,19 @@ struct data_ctx
 	sqlite3 *db;
 };
 
+struct data_work {
+	int id;
+	int type_id;
+	time_t start;
+	time_t end;
+};
+
+struct data_type {
+	int id;
+	char *name;
+	char *description; 
+};
+
 struct data_ctx
 *data_init(char *filename)
 {
@@ -104,6 +117,56 @@ data_stop_work(struct data_ctx *context, int workid, time_t time)
 	sqlite3_finalize(pstmt);
 	ERRRS
 	return 0;
+}
+
+struct data_work
+*data_get_work_by_id(struct data_ctx *context, int id)
+{
+	char *sql = "SELECT id, type_id, start, end FROM work WHERE id = ?1;";
+	sqlite3_stmt *pstmt;
+	int res = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);
+	if (res) {
+		THROW(ERR_SQLPREP)
+		sqlite3_finalize(pstmt);
+		return NULL;
+	}
+
+	sqlite3_bind_int(pstmt, 1, id);
+	int code = sqlite3_step(pstmt);
+	if (code == SQLITE_DONE) { 
+		THROW(ERR_WORKNOTFOUND)
+		sqlite3_finalize(pstmt);
+		return NULL;
+	}
+	if (code == SQLITE_ROW) {
+		ERRRS
+		struct data_work *work = malloc(sizeof(struct data_work));
+		if(work == NULL) {
+			sqlite3_finalize(pstmt);
+			return NULL;
+		}
+		work->id = sqlite3_column_int(pstmt, 0);
+		work->type_id = sqlite3_column_int(pstmt, 1);
+		work->start = sqlite3_column_int64(pstmt, 2);
+		work->end = sqlite3_column_int64(pstmt, 3);
+		if (ERROR) {
+			sqlite3_finalize(pstmt);
+			return NULL;
+		}
+
+		sqlite3_finalize(pstmt);
+		return work;
+	}
+
+	THROW(ERR_DBOP)
+	sqlite3_finalize(pstmt);
+	return NULL;
+}
+
+struct data_type 
+*data_get_type_by_id(struct data_ctx *context, int id)
+{
+
 }
 
 int

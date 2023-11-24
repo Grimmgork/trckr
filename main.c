@@ -71,7 +71,8 @@ main(int argc, char *argv[])
 	}
 
 	trckr_dispose(g_trckr);
-	if(res != 0){
+	
+	if (res != 0) {
 		printerror();
 	}
 	return errno;
@@ -80,8 +81,7 @@ main(int argc, char *argv[])
 int
 cmd_status(int offs, int argc, char *argv[])
 {
-	printf("Status:\n");
-	return 0;
+	return trckr_print_status(g_trckr, stdout);
 }
 
 int
