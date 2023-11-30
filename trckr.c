@@ -177,8 +177,34 @@ trckr_print_status(struct trckr_ctx *context, FILE *fd)
 	}
 
 	fprintf(fd, "work:\t%s\n", type->name);
-	fprintf(fd, "start:\t%s\n", type->description);
 
+	struct tm* info = localtime(&work->start);
+	char buff[26];
+	strftime(buff, 26, "%Y-%m-%d %H:%M", info);
+	fprintf(fd, "start:\t%s\n", buff);
+
+	time_t diff = time(NULL) - work->start;
+
+	if (diff < 60) {
+		// seconds
+	}
+	else
+	if (diff < 3600) {
+		// minutes
+	}
+	else
+	if (diff < 86400) {
+		// hours
+	}
+	else {
+		// days
+	}
+
+	// #TODO
+
+	free(type->name);
+	free(type->description);
+	free(type);
 	free(work);
 	return 0;
 

@@ -1,4 +1,5 @@
 #include <time.h>
+#include <string.h>
 #include "./sqlite3/sqlite3.h"
 #include "error.c"
 
@@ -166,7 +167,51 @@ struct data_work
 struct data_type 
 *data_get_type_by_id(struct data_ctx *context, int id)
 {
+	char *sql = "SELECT id, name, description FROM type WHERE id = ?1;";
+	sqlite3_stmt *pstmt;
+	int res = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);
+	if (res) {
+		THROW(ERR_SQLPREP)
+		sqlite3_finalize(pstmt);
+		return NULL;
+	}
 
+	sqlite3_bind_int(pstmt, 1, id);
+	int code = sqlite3_step(pstmt);
+	if (code == SQLITE_DONE) { 
+		THROW(ERR_WORKNOTFOUND)
+		sqlite3_finalize(pstmt);
+		return NULL;
+	}
+	if (code == SQLITE_ROW) {
+		ERRRS
+		struct data_type *type = malloc(sizeof(struct data_type));
+		if(type == NULL) {
+			sqlite3_finalize(pstmt);
+			return NULL;
+		}
+
+		ERRRS
+		type->id = sqlite3_column_int(pstmt, 0);
+
+		type->name = malloc(sqlite3_column_bytes(pstmt, 1));
+		strcpy(type->name, (char *) sqlite3_column_text(pstmt, 1));
+		
+		type->description = malloc(sqlite3_column_bytes(pstmt, 2));
+		strcpy(type->description, (char *) sqlite3_column_text(pstmt, 2));
+
+		if (ERROR) {
+			sqlite3_finalize(pstmt);
+			return NULL;
+		}
+
+		sqlite3_finalize(pstmt);
+		return type;
+	}
+
+	THROW(ERR_DBOP)
+	sqlite3_finalize(pstmt);
+	return NULL;
 }
 
 int
