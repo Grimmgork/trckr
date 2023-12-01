@@ -75,7 +75,7 @@ main(int argc, char *argv[])
 	if (!strcmp(command, "types")) {
 		res = cmd_get_types(offs, argc, argv);
 	}
-	else {
+	else { // no command matched
 		THROW(22);
 	}
 
@@ -169,10 +169,8 @@ cmd_add(int offs, int argc, char *argv[])
 int
 cmd_get_types(int offs, int argc, char *argv[])
 {
-	int res = trckr_print_types(g_trckr, stdout);
-	return res;
+	return trckr_print_types(g_trckr, stdout);
 }
-
 
 int
 parse_time(char *str, struct tm *datetime) 

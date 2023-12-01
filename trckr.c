@@ -234,7 +234,7 @@ trckr_print_types(struct trckr_ctx *context, FILE *fd)
 		}
 
 		for (int i = 0; i < count; i++) {
-			fprintf(fd, "%03i %s\n", buf[i].id, buf[i].name);
+			fprintf(fd, "#%-4i %s\n", buf[i].id, buf[i].name);
 		}
 
 		skip += count;
