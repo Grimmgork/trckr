@@ -164,7 +164,7 @@ struct data_work
 	return NULL;
 }
 
-struct data_type 
+struct data_type
 *data_get_type_by_id(struct data_ctx *context, int id)
 {
 	char *sql = "SELECT id, name, description FROM type WHERE id = ?1;";
@@ -212,6 +212,54 @@ struct data_type
 	THROW(ERR_DBOP)
 	sqlite3_finalize(pstmt);
 	return NULL;
+}
+
+int
+data_get_all_types(struct data_ctx *context, struct data_type* buf, int n, int skip)
+{
+	char *sql = "SELECT id, name, description FROM type LIMIT ?1 OFFSET ?2;";
+	sqlite3_stmt *pstmt;
+	int res = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);
+	if (res) {
+		THROW(ERR_SQLPREP)
+		sqlite3_finalize(pstmt);
+		return -1;
+	}
+
+	sqlite3_bind_int(pstmt, 1, n);
+	sqlite3_bind_int(pstmt, 2, skip);
+
+	int index = 0;
+	int code;
+	while (code = sqlite3_step(pstmt) == SQLITE_ROW)
+	{
+		struct data_type type;
+		ERRRS
+		type.id = sqlite3_column_int(pstmt, 0);
+
+		type.name = malloc(sqlite3_column_bytes(pstmt, 1));
+		strcpy(type.name, (char *) sqlite3_column_text(pstmt, 1));
+		
+		type.description = malloc(sqlite3_column_bytes(pstmt, 2));
+		strcpy(type.description, (char *) sqlite3_column_text(pstmt, 2));
+
+		if (ERROR) {
+			sqlite3_finalize(pstmt);
+			return -1;
+		}
+
+		buf[index] = type;
+		index++;
+	}
+
+	if (code == SQLITE_DONE || code == SQLITE_OK) {
+		sqlite3_finalize(pstmt);
+		return index;
+	}
+
+	THROW(ERR_DBOP)
+	sqlite3_finalize(pstmt);
+	return -1;
 }
 
 int

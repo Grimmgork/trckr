@@ -186,7 +186,7 @@ trckr_print_status(struct trckr_ctx *context, FILE *fd)
 	int id = data_get_open_work(context->data);
 	if (id < 0) {
 		if (ISERR(ERR_NOOPENWORK)) {
-			fprintf(fd, "work:\tNONE\n");
+			fprintf(fd, "NONE\n");
 			return 0;
 		}
 		else	{
@@ -218,6 +218,27 @@ trckr_print_status(struct trckr_ctx *context, FILE *fd)
 	free(type->description);
 	free(type);
 	free(work);
+	return 0;
+}
+
+int
+trckr_print_types(struct trckr_ctx *context, FILE *fd)
+{
+	struct data_type buf[10];
+	int skip = 0;
+	int count;
+	while (count = data_get_all_types(context->data, buf, 10, skip))
+	{
+		if (count < 0) {
+			return -1;
+		}
+
+		for (int i = 0; i < count; i++) {
+			fprintf(fd, "%03i %s\n", buf[i].id, buf[i].name);
+		}
+
+		skip += count;
+	}
 	return 0;
 }
 

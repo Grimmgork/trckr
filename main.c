@@ -13,6 +13,7 @@ int cmd_started(int offs, int argc, char *argv[]);
 int cmd_status(int offs, int argc, char *argv[]);
 int cmd_add(int offs, int argc, char *argv[]);
 int cmd_stop(int offs, int argc, char *argv[]);
+int cmd_get_types(int offs, int argc, char *argv[]);
 
 struct trckr_ctx *g_trckr;
 
@@ -69,6 +70,14 @@ main(int argc, char *argv[])
 	if (!strcmp(command, "stop")) {
 		res = cmd_stop(offs, argc, argv);
 	}
+	// types
+	else
+	if (!strcmp(command, "types")) {
+		res = cmd_get_types(offs, argc, argv);
+	}
+	else {
+		THROW(22);
+	}
 
 	trckr_dispose(g_trckr);
 	
@@ -111,11 +120,7 @@ cmd_start(int offs, int argc, char *argv[])
 int
 cmd_stop(int offs, int argc, char *argv[])
 {
-	int res = trckr_stop(g_trckr);
-	if (res < 0) {
-		return -1;
-	}
-	return 0;
+	return trckr_stop(g_trckr);
 }
 
 int
@@ -159,6 +164,13 @@ cmd_add(int offs, int argc, char *argv[])
 
 	THROW(22)
 	return -1;
+}
+
+int
+cmd_get_types(int offs, int argc, char *argv[])
+{
+	int res = trckr_print_types(g_trckr, stdout);
+	return res;
 }
 
 
