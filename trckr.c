@@ -154,6 +154,33 @@ trckr_create_type(struct trckr_ctx * context, char *name, char *description)
 }
 
 int
+strftspan(char *buf, int seconds)
+{
+	int index;
+	if (seconds < 60) {
+		// seconds
+		sprintf(buf, "%i seconds", seconds);
+		return 0;
+	}
+	if (seconds < 3600) {
+		// minutes
+		int minutes = seconds / 60;
+		sprintf(buf, "%i minutes", minutes);
+		return 0;
+	}
+	if (seconds < 86400) {
+		// hours
+		int hours = seconds / 3600;
+		sprintf(buf, "%i hours", hours);
+		return 0;
+	}
+	// days
+	int days = seconds / 86400;
+	sprintf(buf, "%i days", days);
+	return 0;
+}
+
+int
 trckr_print_status(struct trckr_ctx *context, FILE *fd)
 {
 	int id = data_get_open_work(context->data);
@@ -183,38 +210,15 @@ trckr_print_status(struct trckr_ctx *context, FILE *fd)
 	strftime(buff, 26, "%Y-%m-%d %H:%M", info);
 	fprintf(fd, "start:\t%s\n", buff);
 
-	time_t diff = time(NULL) - work->start;
-
-	if (diff < 60) {
-		// seconds
-	}
-	else
-	if (diff < 3600) {
-		// minutes
-	}
-	else
-	if (diff < 86400) {
-		// hours
-	}
-	else {
-		// days
-	}
-
-	// #TODO
+	int timespan = time(NULL) - work->start;
+	strftspan(buff, timespan);
+	fprintf(fd, "dur.:\t%s\n", buff);
 
 	free(type->name);
 	free(type->description);
 	free(type);
 	free(work);
 	return 0;
-
-	// work:	NONE
- 
-	// work:	mcs-nico
-	// start:	today 10:30
-
-	// work:	mcs-nico
-	// start:	yesterday 10:30
 }
 
 int
