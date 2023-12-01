@@ -14,6 +14,7 @@ int cmd_status(int offs, int argc, char *argv[]);
 int cmd_add(int offs, int argc, char *argv[]);
 int cmd_stop(int offs, int argc, char *argv[]);
 int cmd_get_types(int offs, int argc, char *argv[]);
+int cmd_report(int offs, int argc, char *argv[]);
 
 struct trckr_ctx *g_trckr;
 
@@ -75,6 +76,11 @@ main(int argc, char *argv[])
 	if (!strcmp(command, "types")) {
 		res = cmd_get_types(offs, argc, argv);
 	}
+	// report [from] [to]
+	else
+	if (!strcmp(command, "report")) {
+		res = cmd_report(offs, argc, argv);
+	}
 	else { // no command matched
 		THROW(22);
 	}
@@ -91,6 +97,12 @@ int
 cmd_status(int offs, int argc, char *argv[])
 {
 	return trckr_print_status(g_trckr, stdout);
+}
+
+int
+cmd_report(int offs, int argc, char *argv[])
+{
+	return trckr_print_report(g_trckr, stdout, 0, 0);
 }
 
 int

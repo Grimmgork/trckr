@@ -243,7 +243,7 @@ trckr_print_types(struct trckr_ctx *context, FILE *fd)
 }
 
 int
-trcker_print_report(struct trckr_ctx *context, FILE *fd, time_t start, time_t end)
+trckr_print_report(struct trckr_ctx *context, FILE *fd, time_t start, time_t end)
 {
 	return 0;
 }

@@ -46,17 +46,9 @@ trckr switch 1
 5-10 10:30
 2023-05-10 10:30
 
-try_parse_time
-	return 
-try_parse_date
-try_parse_time
-
 # time
 now			// now
 [hh:mm]		// time
-
-dd:mm
--> TIME
 
 # date
 yest			// yesterday
@@ -64,15 +56,3 @@ today		// today
 [dd]			// day, this month
 [mm-dd]		// day-month, this year
 [yyyy-mm-dd]	// specific datetime
-
-# error handling
-- return NULL or -1;
-- set errno;
-
-
-# config
-key, value
-format 1
-alias_asd 1
-alias_sdf 2
-alias_cfd 3
