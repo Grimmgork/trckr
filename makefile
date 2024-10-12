@@ -1,8 +1,13 @@
-trckr : main.c data.c ./sqlite3/sqlite3.o trckr.c data.c
-	cc -o trckr main.c ./sqlite3/sqlite3.o -ldl -pthread
+trckr : main.c ./sqlite3/sqlite3.o
+	gcc -o trckr main.c trckr.c ./sqlite3/sqlite3.o -ldl -I. -I./sqlite3 -pthread
 
-./sqlite3/sqlite3.o : 
-	cc -lpthread -ldl -o ./sqlite3/sqlite3.o -c ./sqlite3/sqlite3.c
+./sqlite3/sqlite3.o :
+	gcc -lpthread -ldl -o ./sqlite3/sqlite3.o -c ./sqlite3/sqlite3.c
 
-clean : 
-	rm trckr ./sqlite3/sqlite3.o
+clean :
+ifeq ($(OS), Windows_NT)
+	IF EXIST .\trckr DEL /F .\trckr
+	IF EXIST .\sqlite3\sqlite3.o DEL /F .\sqlite3\sqlite3.o
+else
+	rm ./trckr ./sqlite3/sqlite3.o
+endif
