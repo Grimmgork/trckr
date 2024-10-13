@@ -1,9 +1,11 @@
 # trckr
 
-trckr type 			
-trckr type add
-trckr type remove
-trckr type update [type] [prop] [value]
+trckr type
+trckr add type [name] [description]
+trckr remove type [name]
+trckr set type [name] [prop] [value]
+
+trckr set work [prop] [value]
 
 trckr status
 
@@ -13,7 +15,6 @@ trckr start [type] [time]	// start running work
 trckr switch [type]			// stop open work, start another work
 
 trckr stop				// stop open work now
-trckr stopped [type] [time]	// stop open work at time
 
 
 trckr report today

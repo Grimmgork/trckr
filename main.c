@@ -8,6 +8,7 @@
 #define ERR_INVALID_ARGS 1
 #define ERR_CMD_NOT_FOUND 2
 #define ERR_BAD_PROGRAMMING 3
+#define ERR_OS 4
 
 int unixtime_from_args(int *argc, char **argv[], time_t* out_time);
 
@@ -21,6 +22,16 @@ int cmd_stop(struct trckr_ctx* context, int argc, char *argv[]);
 int cmd_topic(struct trckr_ctx* context, int argc, char *argv[]);
 int cmd_report(struct trckr_ctx* context, int argc, char *argv[]);
 int cmd_route(struct trckr_ctx*, char* name, int argc, char *argv[], int count, ...);
+
+char* strcatdyn(char* a, char* b)
+{
+	int al = strlen(a);
+	int bl = strlen(b);
+	char* result = malloc(al + bl + 1);
+	strcpy(result, a);
+	strcpy(result + al, b);
+	return result;
+}
 
 void printerror(int error) {
 	if (error == 0) {
@@ -41,6 +52,18 @@ char* shiftarg(int *argc, char **argv[])
 	return ptr;
 }
 
+char* getdbpath()
+{
+	#if __linux__
+		char* homedir = getenv("HOME");
+		char* name = "/.trckr.db";
+	#elif _WIN32
+		char* homedir = getenv("USERPROFILE");
+		char* name = "\\.trckr.db";
+	#endif
+	return strcatdyn(homedir, name);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -54,9 +77,15 @@ main(int argc, char *argv[])
 		return result;
 	}
 
+	char* dbpath = getdbpath();
+	if (dbpath == NULL) {
+		return ERR_OS;
+	}
+
 	struct trckr_ctx context;
-	result = trckr_begin("trckr.db", &context);
+	result = trckr_begin(dbpath, &context);
 	if (result != 0) {
+		free(dbpath);
 		printerror(result);
 		return result;
 	}
@@ -64,6 +93,7 @@ main(int argc, char *argv[])
 	if (command == NULL) {
 		result = cmd_status(&context, argc, argv);
 		trckr_end(&context);
+		free(dbpath);
 		printerror(result);
 		return result;
 	}
@@ -79,6 +109,7 @@ main(int argc, char *argv[])
 	);
 
 	trckr_end(&context);
+	free(dbpath);
 	printerror(result);
 	return result;
 }
@@ -116,13 +147,15 @@ cmd_route(struct trckr_ctx* context, char* name, int argc, char *argv[], int cou
 int
 cmd_initialize(int argc, char *argv[])
 {
-	return trckr_init("trckr.db");
+	char* path = getdbpath();
+	int result = trckr_init(path);
+	free(path);
+	return result;
 }
 
 int
 cmd_status(struct trckr_ctx* context, int argc, char *argv[])
 {
-	
 	int result;
 	struct data_work work;
 	result = trckr_get_open_work(context, &work);
@@ -141,8 +174,11 @@ cmd_status(struct trckr_ctx* context, int argc, char *argv[])
 		return result;
 	}
 
-	printf("topic: %s\n", topic.name);
-	printf("started: %d\n", work.start);
+	printf("# open work:\n");
+	printf("topic:\t%s\n", topic.name);
+	printf("desc.:\t%s\n", topic.description);
+	printf("start:\t%d\n", work.start);
+	printf("for:\t%dm\n", (time(NULL) - work.start) / 60);
 	return 0;
 }
 

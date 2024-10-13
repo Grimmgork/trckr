@@ -60,7 +60,7 @@ query_get_open_work_id(struct trckr_ctx *context, int* out_id)
 int
 query_get_open_work(struct trckr_ctx *context, struct data_work* out_work)
 {
-	char *sql = "SELECT id, topic_id, start, end, description FROM work WHERE end IS NULL;";
+	char *sql = "SELECT id, topic_id, start, duration, description FROM work WHERE duration IS NULL;";
 	sqlite3_stmt *pstmt;
 	int result;
 	result = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);
@@ -84,7 +84,8 @@ query_get_open_work(struct trckr_ctx *context, struct data_work* out_work)
 	out_work->id = sqlite3_column_int(pstmt, 0);
 	out_work->topic_id = sqlite3_column_int(pstmt, 1);
 	out_work->start = sqlite3_column_int(pstmt, 2);
-	out_work->end = sqlite3_column_int(pstmt, 3);
+	out_work->duration = sqlite3_column_int(pstmt, 3);
+	snprintf(out_work->description, sizeof(out_work->description), "%s", (char*)sqlite3_column_text(pstmt, 3));
 	sqlite3_finalize(pstmt);
 	return 0;
 }
@@ -122,16 +123,10 @@ query_stop_work(struct trckr_ctx *context, int work_id, time_t time)
 }
 
 int
-query_start_work(struct trckr_ctx *context, int work_id, time_t time)
-{
-	return 0;
-}
-
-int
 query_iterate_last_work(struct trckr_ctx *context, int (*callback)(struct data_work_topic*))
 {
 	int result;
-	const char *sql = "SELECT id, topic_id, description FROM work WHERE name LIKE CONCAT('%%', ?1, '%%');";
+	const char *sql = "SELECT id, topic_id, start, duration, description FROM work ORDER BY start";
 	sqlite3_stmt *pstmt;
 	result = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);
 	if (result != SQLITE_OK) {
@@ -173,10 +168,14 @@ query_iterate_topics_by_name(struct trckr_ctx *context, char* name, int (*callba
 		snprintf(topic.name, sizeof(topic.name), "%s", (char*) sqlite3_column_text(pstmt, 1));
 		snprintf(topic.description, sizeof(topic.description), "%s", (char*) sqlite3_column_text(pstmt, 2));
 		result = callback(&topic);
+		if (result == TRCKR_ITERATION_DONE) {
+			break;
+		}
 
 		if (result != 0) {
+			// error occured
 			sqlite3_finalize(pstmt);
-			return TRCKR_ERR;
+			return result;
 		}
 	}
 	
@@ -379,7 +378,7 @@ trckr_init(char* path)
 
 	// create shema
 	const char *sql = "CREATE TABLE IF NOT EXISTS topic(id INTEGER PRIMARY KEY, name TEXT UNIQUE, description TEXT); \
-	                   CREATE TABLE IF NOT EXISTS work(id INTEGER PRIMARY KEY, topic_id INTEGER, start INTEGER, end INTEGER, description TEXT);";
+	                   CREATE TABLE IF NOT EXISTS work(id INTEGER PRIMARY KEY, topic_id INTEGER, start INTEGER, duration INTEGER, description TEXT);";
 	result = sqlite3_exec(db, sql, 0, 0, NULL);
 	if (result != SQLITE_OK) {
 		sqlite3_close(db);

@@ -9,6 +9,7 @@
 #define TRCKR_ERR_INITIALIZED -7
 #define TRCKR_ERR_NAME_TAKEN -8
 #define TRCKR_ERR_INVALID_INPUT -9
+#define TRCKR_ITERATION_DONE -10
 
 struct trckr_ctx {
 	sqlite3 *db;
@@ -18,7 +19,7 @@ struct data_work {
 	int id;
 	int topic_id;
 	time_t start;
-	time_t end;
+	time_t duration;
 	char description[256];
 };
 
