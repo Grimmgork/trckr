@@ -1,3 +1,4 @@
+#pragma once
 #include <sqlite3.h>
 
 #define TRCKR_ERR -1
@@ -10,6 +11,11 @@
 #define TRCKR_ERR_NAME_TAKEN -8
 #define TRCKR_ERR_INVALID_INPUT -9
 #define TRCKR_ITERATION_DONE -10
+
+// ctx = trckr_init()
+// result = trckr_call(**payload)
+// trckr_reset(result)
+// trckr_end()
 
 struct trckr_ctx {
 	sqlite3 *db;
@@ -49,6 +55,7 @@ int trckr_stop_work(struct trckr_ctx *context, time_t time);
 int trckr_switch_work(struct trckr_ctx *context, time_t time, int topic_id, char* description);
 int trckr_create_topic(struct trckr_ctx *context, char* name, char* description);
 int trckr_iterate_topics_by_name(struct trckr_ctx *context, char* name, int (*callback)(struct data_work_topic*));
+int trckr_iterate_last_work(struct trckr_ctx *context, int count, int (*callback)(struct data_work*));
 int trckr_create_alias();
 // int trckr_iterate_aliases(struct trckr_ctx *context, int topic_id, callback?);
 // int trckr_print_report(struct trckr_ctx *context, FILE* handle, int from, int to);

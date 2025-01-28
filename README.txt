@@ -5,9 +5,7 @@ trckr add type [name] [description]
 trckr remove type [name]
 trckr set type [name] [prop] [value]
 
-trckr set work [prop] [value]
-
-trckr status
+trckr set [type] [identifier] [prop] [value]
 
 trckr start [type]			// start work now
 trckr start [type] [time]	// start running work
@@ -16,6 +14,7 @@ trckr switch [type]			// stop open work, start another work
 
 trckr stop				// stop open work now
 
+trckr work
 
 trckr report today
 trckr report yesterday
@@ -55,3 +54,6 @@ today		// today
 [dd]			// day, this month
 [mm-dd]		// day-month, this year
 [yyyy-mm-dd]	// specific datetime
+
+trckr start 101 "asdad ad awd awdawd"
+trckr stop

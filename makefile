@@ -1,5 +1,8 @@
 trckr : main.c ./sqlite3/sqlite3.o
-	gcc -o trckr main.c trckr.c ./sqlite3/sqlite3.o -ldl -I. -I./sqlite3 -pthread
+	gcc -o trckr \
+		main.c trckr.c ./sqlite3/sqlite3.o ./arena/arena.c  \
+		-I. -I./sqlite3 -I./arena \
+		-ldl -pthread
 
 ./sqlite3/sqlite3.o :
 	gcc -lpthread -ldl -o ./sqlite3/sqlite3.o -c ./sqlite3/sqlite3.c

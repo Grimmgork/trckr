@@ -5,25 +5,55 @@
 #include <stdarg.h>
 #include <trckr.h>
 
+#include <arena.h>
+
 #define ERR_INVALID_ARGS 1
 #define ERR_CMD_NOT_FOUND 2
 #define ERR_BAD_PROGRAMMING 3
-#define ERR_OS 4
+#define ERR_MALLOC 4
 
 int unixtime_from_args(int *argc, char **argv[], time_t* out_time);
 
 int cmd_start(struct trckr_ctx* context, int argc, char *argv[]);
-int cmd_initialize(int argc, char *argv[]);
-int cmd_started(struct trckr_ctx* context, int argc, char *argv[]);
 int cmd_status(struct trckr_ctx* context, int argc, char *argv[]);
 int cmd_add(struct trckr_ctx* context, int argc, char *argv[]);
 int cmd_add_topic(struct trckr_ctx* context, int argc, char *argv[]);
 int cmd_stop(struct trckr_ctx* context, int argc, char *argv[]);
 int cmd_topic(struct trckr_ctx* context, int argc, char *argv[]);
 int cmd_report(struct trckr_ctx* context, int argc, char *argv[]);
+int cmd_work(struct trckr_ctx* context, int argc, char *argv[]);
 int cmd_route(struct trckr_ctx*, char* name, int argc, char *argv[], int count, ...);
 
-char* strcatdyn(char* a, char* b)
+char*
+get_error_message(int error) {
+	switch (error) {
+		case 0: return "No error occured.";
+		case ERR_INVALID_ARGS: return "Invalid arguments.";
+		case ERR_CMD_NOT_FOUND: return "Command not found.";
+		case ERR_BAD_PROGRAMMING: return "Bad programming.";
+		case ERR_MALLOC: return "Allocation failed.";
+
+		case TRCKR_ERR: return "An error occured.";
+		case TRCKR_ERR_SQL: return "SQL error occured.";
+		case TRCKR_ERR_NO_OPEN_WORK: return "No open work.";
+		case TRCKR_ERR_ALLOC: return "Memory allocation failed.";
+		case TRCKR_ERR_OPEN_WORK: return "There is open work.";
+		case TRCKR_NOT_FOUND: return "Not found.";
+		case TRCKR_ERR_INITIALIZED: return "Already initialized.";
+		case TRCKR_ERR_NAME_TAKEN: return "Name is taken.";
+		case TRCKR_ERR_INVALID_INPUT: return "Invalid input.";
+		default: return "An error occured.";
+	}
+}
+
+void
+print_error_message(int error) {
+	char* message = get_error_message(error);
+	fprintf(stderr, "ERROR [%d] %s\n", error, message);
+}
+
+char*
+str_cat_dyn(char* a, char* b)
 {
 	int al = strlen(a);
 	int bl = strlen(b);
@@ -33,14 +63,8 @@ char* strcatdyn(char* a, char* b)
 	return result;
 }
 
-void printerror(int error) {
-	if (error == 0) {
-		return;
-	}
-	fprintf(stderr, "ERROR: %d\n", error);
-}
-
-char* shiftarg(int *argc, char **argv[])
+char*
+shiftarg(int *argc, char **argv[])
 {
 	if (*argc <= 0) {
 		return NULL;
@@ -52,41 +76,47 @@ char* shiftarg(int *argc, char **argv[])
 	return ptr;
 }
 
-char* getdbpath()
+char*
+get_db_path()
 {
 	#if __linux__
-		char* homedir = getenv("HOME");
-		char* name = "/.trckr.db";
+		char* variable = "HOME";
 	#elif _WIN32
-		char* homedir = getenv("USERPROFILE");
-		char* name = "\\.trckr.db";
+		char* variable = "USERPROFILE";
 	#endif
-	return strcatdyn(homedir, name);
+	char* name = "/.trckr.db";
+	char* dir = getenv(name);
+	return str_cat_dyn(dir, name);
 }
 
 int
 main(int argc, char *argv[])
 {
+
+	arena_tests();
+	return 0;
+
 	int result;
 	shiftarg(&argc, &argv);
 	char* command = shiftarg(&argc, &argv);
+
+	char* dbpath = get_db_path();
+	if (dbpath == NULL) {
+		return ERR_MALLOC;
+	}
 	
 	if (command != NULL && !strcmp(command, "init")) {
-		result = cmd_initialize(argc, argv);
-		printerror(result);
+		result = trckr_init(dbpath);
+		free(dbpath);
+		if (result != 0) print_error_message(result);
 		return result;
-	}
-
-	char* dbpath = getdbpath();
-	if (dbpath == NULL) {
-		return ERR_OS;
 	}
 
 	struct trckr_ctx context;
 	result = trckr_begin(dbpath, &context);
 	if (result != 0) {
 		free(dbpath);
-		printerror(result);
+		if (result != 0) print_error_message(result);
 		return result;
 	}
 
@@ -94,14 +124,13 @@ main(int argc, char *argv[])
 		result = cmd_status(&context, argc, argv);
 		trckr_end(&context);
 		free(dbpath);
-		printerror(result);
+		if (result != 0) print_error_message(result);
 		return result;
 	}
 
-	result = cmd_route(&context, command, argc, argv, 14,
+	result = cmd_route(&context, command, argc, argv, 12,
 		"status", cmd_status,
 		"start", cmd_start,
-		"started", cmd_started,
 		"add", cmd_add,
 		"stop", cmd_stop,
 		"topic", cmd_topic,
@@ -110,7 +139,7 @@ main(int argc, char *argv[])
 
 	trckr_end(&context);
 	free(dbpath);
-	printerror(result);
+	if (result != 0) print_error_message(result);
 	return result;
 }
 
@@ -145,15 +174,6 @@ cmd_route(struct trckr_ctx* context, char* name, int argc, char *argv[], int cou
 }
 
 int
-cmd_initialize(int argc, char *argv[])
-{
-	char* path = getdbpath();
-	int result = trckr_init(path);
-	free(path);
-	return result;
-}
-
-int
 cmd_status(struct trckr_ctx* context, int argc, char *argv[])
 {
 	int result;
@@ -174,10 +194,14 @@ cmd_status(struct trckr_ctx* context, int argc, char *argv[])
 		return result;
 	}
 
+	char buffer[10];
+	struct tm t = *localtime(&work.start);
+	strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M", &t);
+
 	printf("# open work:\n");
 	printf("topic:\t%s\n", topic.name);
 	printf("desc.:\t%s\n", topic.description);
-	printf("start:\t%d\n", work.start);
+	printf("start:\t%s\n", buffer);
 	printf("for:\t%dm\n", (time(NULL) - work.start) / 60);
 	return 0;
 }
@@ -197,6 +221,20 @@ cmd_start(struct trckr_ctx* context, int argc, char* argv[])
 	}
 
 	int result;
+	time_t timestamp;
+
+	if (argc > 0)
+	{
+		result = unixtime_from_args(&argc, &argv, &timestamp);
+		if (result != 0) {
+			return result;
+		}
+	}
+	else
+	{
+		timestamp = time(NULL);
+	}
+
 	struct data_work_topic topic;
 	result = trckr_get_topic_by_name(context, name, &topic);
 	if (result != 0) {
@@ -205,41 +243,27 @@ cmd_start(struct trckr_ctx* context, int argc, char* argv[])
 
 	char* description = shiftarg(&argc, &argv);
 	int id;
-	return trckr_start_work(context, topic.id, description, time(NULL), &id);
+	return trckr_start_work(context, topic.id, description, timestamp, &id);
 }
 
 int
 cmd_stop(struct trckr_ctx* context, int argc, char *argv[])
 {
-	return trckr_stop_work(context, time(NULL));
-}
-
-int
-cmd_started(struct trckr_ctx* context, int argc, char *argv[])
-{
-	// check for enough arguments
-	if (argc <= 0) {
-		return ERR_INVALID_ARGS;
-	}
-
-	// get type by name
 	int result;
-	struct data_work_topic topic;
-	result = trckr_get_topic_by_name(context, argv[0], &topic);
-	if (result != 0) {
-		return result;
+	time_t timestamp;
+	if (argc > 0)
+	{
+		result = unixtime_from_args(&argc, &argv, &timestamp);
+		if (result != 0) {
+			return result;
+		}
+	}
+	else
+	{
+		timestamp = time(NULL);
 	}
 
-	// parse time input
-	time_t time;
-	result = unixtime_from_args(&argc, &argv, &time);
-	if (result != 0) {
-		return result;
-	}
-
-	// todo description
-	int id;
-	return trckr_start_work(context, topic.id, "", time, &id);
+	return trckr_stop_work(context, timestamp);
 }
 
 int
@@ -268,7 +292,6 @@ cmd_topic(struct trckr_ctx* context, int argc, char *argv[])
 		printf("%s\n", topic->name);
 		return 0;
 	}
-
 	return trckr_iterate_topics_by_name(context, search, callback);
 }
 
@@ -350,4 +373,5 @@ unixtime_from_args(int *argc, char **argv[], time_t* out_time)
 	}
 
 	*out_time = mktime(&datetime);
+	return 0;
 }
