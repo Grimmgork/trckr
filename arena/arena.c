@@ -6,122 +6,183 @@
 
 int arena_alloc_chunk(struct arena *arena);
 
-void
-arena_init(struct arena *arena)
+struct arena*
+arena_init()
 {
-	arena->scope = NULL;
+	struct arena* arena = malloc(sizeof(struct arena));
+	arena->scope_index = 0;
 	arena->last = &arena->first;
+	arena->scopes[0].data_offset = 0;
+	arena->scopes[0].head = &arena->first;
+	arena->first.next = NULL;
 }
 
-int
+void
 arena_push_scope(struct arena *arena)
 {
-	if (arena->scope == NULL)
-	{
-		struct arena_scope *scope = (void*)&(&arena->first)->data[0];
-		scope->parent = NULL;
-		scope->head = &arena->first;
-		arena->scope = scope;
-
-		arena->first.data_offset += sizeof(struct arena_scope);
-		return 0;
+	if (arena->scope_index >= MAX_SCOPE_DEPTH) {
+		return;
 	}
-	else
-	{
-		struct arena_scope* scope = arena_push(arena, sizeof(struct arena_scope));
-		if (scope == NULL) {
-			return 1;
-		}
 
-		scope->parent = arena->scope;
-		scope->head = scope->parent->head;
-		arena->scope = scope;
-		return 0;
-	}
+	struct arena_scope* scope = &arena->scopes[arena->scope_index];
+	int data_offset = scope->data_offset;
+	struct arena_chunk* head = scope->head;
+
+	arena->scope_index++;
+	scope = &arena->scopes[arena->scope_index];
+	
+	scope->data_offset = data_offset;
+	scope->head = head;
 }
 
 void*
-arena_push(struct arena *arena, size_t size)
+arena_alloc(struct arena *arena, size_t size)
 {
+	if (size == 0) {
+		return NULL;
+	}
+
 	if (size > ARENA_CHUNK_SIZE) {
 		return NULL;
 	}
 
-	if (arena->scope == NULL) {
-		return NULL;
-	}
-
-	struct arena_chunk* chunk = arena->scope->head;
-	if (ARENA_CHUNK_SIZE - chunk->data_offset < size)
+	struct arena_scope* scope = &arena->scopes[arena->scope_index];
+	if (scope->data_offset + size > ARENA_CHUNK_SIZE)
 	{
-		// not enough space
-		int result = arena_alloc_chunk(arena);
-		if (result != 0) {
-			return NULL;
+		// data does not fit, need new chunk
+		if (scope->head->next == NULL)
+		{
+			// allocate new chunk
+			int error = arena_alloc_chunk(arena);
+			if (error != 0) {
+				return NULL;
+			}
 		}
 
-		return &chunk->data;
+		scope->head = scope->head->next;
+		scope->data_offset = 0;
 	}
-	else
-	{
-		// enough space
-		void* ptr = &chunk->data[chunk->data_offset];
-		chunk->data_offset += size;
-		return ptr;
-	}
+
+	void* result = &scope->head->data + scope->data_offset;
+	scope->data_offset += size;
+	return result;
 }
 
 void
 arena_pop_scope(struct arena *arena)
 {
-	if (arena->scope == NULL) {
+	if (arena->scope_index <= 0) {
 		return;
 	}
 
-	arena->scope = arena->scope->parent;
+	arena->scope_index--;
 }
 
 int
 arena_alloc_chunk(struct arena *arena)
 {
-	struct arena_chunk *chunk = malloc(sizeof(struct arena_chunk));
+	struct arena_chunk* chunk = malloc(sizeof(struct arena_chunk));
 	if (chunk == NULL) {
 		return 1;
 	}
 
+	// init the chunk
 	chunk->next = NULL;
+
+	// append chunk
 	arena->last->next = chunk;
 	arena->last = chunk;
+
 	return 0;
+}
+
+int
+arena_count_chunks(struct arena* arena)
+{
+	int i = 1;
+	struct arena_chunk* chunk = &arena->first;
+	while (chunk->next != NULL)
+	{
+		chunk = chunk->next;
+		i++;
+	}
+	return i;
+}
+
+void
+arena_free(struct arena* arena)
+{
+	struct arena_chunk* chunk = arena->first.next;
+	while (chunk != NULL)
+	{
+		struct arena_chunk* tofree = chunk;
+		chunk = chunk->next;
+		free(tofree);
+	}
+
+	free(arena);
 }
 
 void
 arena_tests()
 {
 	int result;
+	struct arena *arena = arena_init();
 
-	printf("start arena_tests\n");
+	assert(arena->scope_index == 0);
+	assert(arena->scopes[arena->scope_index].data_offset == 0);
+	assert(arena->scopes[arena->scope_index].head == &arena->first);
+	assert(arena->last == &arena->first);
 
-	printf("init arena\n");
-	struct arena arena;
-	arena_init(&arena);
+	void* alloc = arena_alloc(arena, 16);
+	assert(alloc != NULL);
+	assert(arena->scopes[arena->scope_index].data_offset == 16);
 
-	assert(arena.last == &arena.first);
+	alloc = arena_alloc(arena, 16);
+	assert(alloc != NULL);
+	assert(arena->scopes[arena->scope_index].data_offset == 32);
 
-	printf("start scope 1\n");
-	result = arena_push_scope(&arena);
-	assert(result == 0);
+	alloc = arena_alloc(arena, 1024);
+	assert(alloc != NULL);
+	assert(arena->scopes[arena->scope_index].data_offset == 1024);
 
-	assert(arena.scope != NULL);
-	assert(arena.scope->head == &arena.first);
+	alloc = arena_alloc(arena, 32);
+	assert(alloc != NULL);
+	assert(arena->scopes[arena->scope_index].data_offset == 32);
 
-	printf("start scope 2\n");
-	result = arena_push_scope(&arena);
-	assert(result == 0);
+	alloc = arena_alloc(arena, 32);
+	assert(alloc != NULL);
+	assert(arena->scopes[arena->scope_index].data_offset == 64);
 
-	assert(arena.scope != NULL);
-	assert(arena.scope->parent != NULL);
-	assert(arena.scope->head->data_offset == sizeof(struct arena_scope));
+	int data_offset = arena->scopes[arena->scope_index].data_offset;
+	struct arena_chunk* head = arena->scopes[arena->scope_index].head;
 
-	printf("done!\n");
+	arena_push_scope(arena);
+
+	alloc = arena_alloc(arena, 1000);
+	assert(alloc != NULL);
+	assert(arena->scopes[arena->scope_index].data_offset == 1000);
+
+	assert(arena_count_chunks(arena) == 4);
+
+	arena_pop_scope(arena);
+
+	assert(arena->scopes[arena->scope_index].data_offset == data_offset);
+	assert(arena->scopes[arena->scope_index].head == head);
+
+	assert(arena_count_chunks(arena) == 4);
+
+	alloc = arena_alloc(arena, 1000);
+	assert(alloc != NULL);
+	assert(arena->scopes[arena->scope_index].data_offset == 1000);
+
+	assert(arena_count_chunks(arena) == 4);
+
+	alloc = arena_alloc(arena, 1000);
+	assert(alloc != NULL);
+	assert(arena->scopes[arena->scope_index].data_offset == 1000);
+
+	assert(arena_count_chunks(arena) == 5);
+
+	arena_free(arena);
 }

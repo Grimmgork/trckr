@@ -1,5 +1,6 @@
 #pragma once
 #include <sqlite3.h>
+#include <time.h>
 
 #define TRCKR_ERR -1
 #define TRCKR_ERR_SQL -2
@@ -11,11 +12,6 @@
 #define TRCKR_ERR_NAME_TAKEN -8
 #define TRCKR_ERR_INVALID_INPUT -9
 #define TRCKR_ITERATION_DONE -10
-
-// ctx = trckr_init()
-// result = trckr_call(**payload)
-// trckr_reset(result)
-// trckr_end()
 
 struct trckr_ctx {
 	sqlite3 *db;

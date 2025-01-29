@@ -85,14 +85,13 @@ get_db_path()
 		char* variable = "USERPROFILE";
 	#endif
 	char* name = "/.trckr.db";
-	char* dir = getenv(name);
+	char* dir = getenv(variable);
 	return str_cat_dyn(dir, name);
 }
 
 int
 main(int argc, char *argv[])
 {
-
 	arena_tests();
 	return 0;
 
