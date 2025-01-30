@@ -92,7 +92,17 @@ get_db_path()
 int
 main(int argc, char *argv[])
 {
-	arena_tests();
+	struct arena* arena = arena_init();
+	if (arena == NULL) {
+		return 1;
+	}
+
+	char* buffer = arena_push(arena, sizeof());
+	if (buffer == NULL) {
+		return 1;
+	}
+
+	arena_free(arena);
 	return 0;
 
 	int result;

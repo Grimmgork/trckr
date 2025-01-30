@@ -4,6 +4,23 @@
 
 #include <arena.h>
 
+struct arena_chunk {
+	struct arena_chunk* next;
+	char data[ARENA_CHUNK_SIZE];
+};
+
+struct arena_scope {
+	int data_offset;
+	struct arena_chunk* head;
+};
+
+struct arena {
+	int scope_index;
+	struct arena_scope scopes[MAX_SCOPE_DEPTH];
+	struct arena_chunk* last; // last allocated chunk
+	struct arena_chunk first;
+};
+
 int arena_alloc_chunk(struct arena *arena);
 
 struct arena*
@@ -36,7 +53,7 @@ arena_push_scope(struct arena *arena)
 }
 
 void*
-arena_alloc(struct arena *arena, size_t size)
+arena_push(struct arena *arena, size_t size)
 {
 	if (size == 0) {
 		return NULL;
@@ -134,23 +151,23 @@ arena_tests()
 	assert(arena->scopes[arena->scope_index].head == &arena->first);
 	assert(arena->last == &arena->first);
 
-	void* alloc = arena_alloc(arena, 16);
+	void* alloc = arena_push(arena, 16);
 	assert(alloc != NULL);
 	assert(arena->scopes[arena->scope_index].data_offset == 16);
 
-	alloc = arena_alloc(arena, 16);
+	alloc = arena_push(arena, 16);
 	assert(alloc != NULL);
 	assert(arena->scopes[arena->scope_index].data_offset == 32);
 
-	alloc = arena_alloc(arena, 1024);
+	alloc = arena_push(arena, 1024);
 	assert(alloc != NULL);
 	assert(arena->scopes[arena->scope_index].data_offset == 1024);
 
-	alloc = arena_alloc(arena, 32);
+	alloc = arena_push(arena, 32);
 	assert(alloc != NULL);
 	assert(arena->scopes[arena->scope_index].data_offset == 32);
 
-	alloc = arena_alloc(arena, 32);
+	alloc = arena_push(arena, 32);
 	assert(alloc != NULL);
 	assert(arena->scopes[arena->scope_index].data_offset == 64);
 
@@ -159,7 +176,7 @@ arena_tests()
 
 	arena_push_scope(arena);
 
-	alloc = arena_alloc(arena, 1000);
+	alloc = arena_push(arena, 1000);
 	assert(alloc != NULL);
 	assert(arena->scopes[arena->scope_index].data_offset == 1000);
 
@@ -172,17 +189,19 @@ arena_tests()
 
 	assert(arena_count_chunks(arena) == 4);
 
-	alloc = arena_alloc(arena, 1000);
+	alloc = arena_push(arena, 1000);
 	assert(alloc != NULL);
 	assert(arena->scopes[arena->scope_index].data_offset == 1000);
 
 	assert(arena_count_chunks(arena) == 4);
 
-	alloc = arena_alloc(arena, 1000);
+	alloc = arena_push(arena, 1000);
 	assert(alloc != NULL);
 	assert(arena->scopes[arena->scope_index].data_offset == 1000);
 
 	assert(arena_count_chunks(arena) == 5);
 
 	arena_free(arena);
+
+	printf("Tests done!\n");
 }
