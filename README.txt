@@ -1,20 +1,25 @@
 # trckr
 
-trckr type
-trckr add type [name] [description]
-trckr remove type [name]
-trckr set type [name] [prop] [value]
+trckr topic
+trckr add topic [name] [description]
+trckr remove topic [name]
+trckr update topic [name] [prop] [value]
 
-trckr set [type] [identifier] [prop] [value]
+trckr update work [prop] [value]
+trckr update work [id] [prop] [value]
 
-trckr start [type]			// start work now
-trckr start [type] [time]	// start running work
+trckr start [topic] [time]	// start work at specific time
+trckr start [topic]         // start work after last closed work
 
-trckr switch [type]			// stop open work, start another work
-
-trckr stop				// stop open work now
+trckr stop		     // stop open work now
+trckr stop [time]    // stop open work at time
 
 trckr work
+trckr work today
+trckr work yesterday
+trckr work week
+trckr work month
+
 
 trckr report today
 trckr report yesterday
@@ -28,16 +33,17 @@ trckr report year
 trckr report last year
 trckr report since last year
 
-# config
-aliases:
-
 # work
 id
 type
 start
-end
+duration
 
-trckr switch 1
+# topic
+id
+name
+description
+
 
 10:30
 10 10:30
@@ -54,6 +60,3 @@ today		// today
 [dd]			// day, this month
 [mm-dd]		// day-month, this year
 [yyyy-mm-dd]	// specific datetime
-
-trckr start 101 "asdad ad awd awdawd"
-trckr stop

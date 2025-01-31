@@ -1,6 +1,7 @@
 #include <stdio.h>   
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 #include <arena.h>
 
@@ -80,7 +81,8 @@ arena_push(struct arena *arena, size_t size)
 		scope->data_offset = 0;
 	}
 
-	void* result = &scope->head->data + scope->data_offset;
+	// get location and increment offset
+	void* result = &scope->head->data[scope->data_offset];
 	scope->data_offset += size;
 	return result;
 }
@@ -200,6 +202,18 @@ arena_tests()
 	assert(arena->scopes[arena->scope_index].data_offset == 1000);
 
 	assert(arena_count_chunks(arena) == 5);
+	arena_free(arena);
+
+
+	arena = arena_init();
+
+	char* stringA = arena_push(arena, 13);
+	assert(stringA != NULL);
+
+	char* stringB = arena_push(arena, 13);
+	assert(stringB != NULL);
+
+	assert(stringA + 13 == stringB);
 
 	arena_free(arena);
 

@@ -92,19 +92,6 @@ get_db_path()
 int
 main(int argc, char *argv[])
 {
-	struct arena* arena = arena_init();
-	if (arena == NULL) {
-		return 1;
-	}
-
-	char* buffer = arena_push(arena, sizeof());
-	if (buffer == NULL) {
-		return 1;
-	}
-
-	arena_free(arena);
-	return 0;
-
 	int result;
 	shiftarg(&argc, &argv);
 	char* command = shiftarg(&argc, &argv);
@@ -186,8 +173,8 @@ int
 cmd_status(struct trckr_ctx* context, int argc, char *argv[])
 {
 	int result;
-	struct data_work work;
-	result = trckr_get_open_work(context, &work);
+	struct data_status status;
+	result = trckr_get_status(context, &status);
 	if (result == TRCKR_NOT_FOUND) {
 		printf("no open work.\n");
 		return 0;
@@ -197,21 +184,16 @@ cmd_status(struct trckr_ctx* context, int argc, char *argv[])
 		return result;
 	}
 
-	struct data_work_topic topic;
-	result = trckr_get_topic_by_id(context, work.topic_id, &topic);
-	if (result != 0) {
-		return result;
-	}
+	char buffer[32] = "";
+	struct tm t = *localtime(&status.work.start);
 
-	char buffer[10];
-	struct tm t = *localtime(&work.start);
 	strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M", &t);
 
 	printf("# open work:\n");
-	printf("topic:\t%s\n", topic.name);
-	printf("desc.:\t%s\n", topic.description);
+	printf("topic:\t%s\n", status.topic.name);
+	printf("desc.:\t%s\n", status.work.description);
 	printf("start:\t%s\n", buffer);
-	printf("for:\t%dm\n", (time(NULL) - work.start) / 60);
+	printf("for:\t%dm\n", (time(NULL) - status.work.start) / 60);
 	return 0;
 }
 
@@ -296,12 +278,13 @@ int
 cmd_topic(struct trckr_ctx* context, int argc, char *argv[])
 {
 	char* search = shiftarg(&argc, &argv);
-	int callback(struct data_work_topic* topic)
+	struct data_work_topic topic;
+	int callback()
 	{
-		printf("%s\n", topic->name);
+		printf("%s - %s\n", topic.name, topic.description);
 		return 0;
 	}
-	return trckr_iterate_topics_by_name(context, search, callback);
+	return trckr_iterate_topics_by_name(context, search, &topic, callback);
 }
 
 int
@@ -365,7 +348,8 @@ unixtime_from_args(int *argc, char **argv[], time_t* out_time)
 	datetime.tm_isdst = -1; // load DST from system
 	datetime.tm_sec = 0;
 	if (!parse_time(a, &datetime)) {
-		return mktime(&datetime);
+		*out_time = mktime(&datetime);
+		return 0;
 	}
 
 	char* b = shiftarg(argc, argv);

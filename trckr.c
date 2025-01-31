@@ -85,7 +85,9 @@ query_get_open_work(struct trckr_ctx *context, struct data_work* out_work)
 	out_work->topic_id = sqlite3_column_int(pstmt, 1);
 	out_work->start = sqlite3_column_int(pstmt, 2);
 	out_work->duration = sqlite3_column_int(pstmt, 3);
-	snprintf(out_work->description, sizeof(out_work->description), "%s", (char*)sqlite3_column_text(pstmt, 3));
+	const char *text = sqlite3_column_text(pstmt, 4);
+	snprintf(out_work->description, sizeof(out_work->description), "%s", text);
+
 	sqlite3_finalize(pstmt);
 	return 0;
 }
@@ -117,13 +119,32 @@ query_create_work(struct trckr_ctx *context, time_t start, int topic_id, char* d
 }
 
 int
-query_stop_work(struct trckr_ctx *context, int work_id, time_t time)
+query_stop_work(struct trckr_ctx *context, int work_id, int duration)
 {
+	const char *sql = "UPDATE work SET duration=?1 WHERE id=?2;";
+	int result;
+	sqlite3_stmt *pstmt;
+	result = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);
+	if (result != SQLITE_OK) {
+		sqlite3_finalize(pstmt);
+		return TRCKR_ERR_SQL;
+	}
+
+	sqlite3_bind_int(pstmt, 1, duration);
+	sqlite3_bind_int(pstmt, 2, work_id);
+	result = sqlite3_step(pstmt);
+
+	if (result != SQLITE_DONE) {
+		sqlite3_finalize(pstmt);
+		return TRCKR_ERR_SQL;
+	}
+
+	sqlite3_finalize(pstmt);
 	return 0;
 }
 
 int
-query_iterate_last_work(struct trckr_ctx *context, int count, int (*callback)(struct data_work*))
+query_iterate_last_work(struct trckr_ctx *context, struct data_work* work, int count, int (*callback)())
 {
 	int result;
 	const char *sql = "SELECT id, topic_id, start, duration, description FROM work ORDER BY start";
@@ -134,9 +155,9 @@ query_iterate_last_work(struct trckr_ctx *context, int count, int (*callback)(st
 		return TRCKR_ERR_SQL;
 	}
 
-	struct data_work work;
-	int i;
-	for (i=0; i<count; i++) {
+	int i = 0;
+	for (int i = 0; i < count; i++) 
+	{
 		result = sqlite3_step(pstmt);
 		if (result == SQLITE_DONE) {
 			break;
@@ -147,13 +168,16 @@ query_iterate_last_work(struct trckr_ctx *context, int count, int (*callback)(st
 			return TRCKR_ERR_SQL;
 		}
 
-		work.id = sqlite3_column_int(pstmt, 0);
-		work.topic_id = sqlite3_column_int(pstmt, 1);
-		work.start = sqlite3_column_int(pstmt, 2);
-		work.duration = sqlite3_column_int(pstmt, 3);
-		snprintf(work.description, sizeof(work.description), "%s", (char*) sqlite3_column_text(pstmt, 4));
-
-		result = callback(&work);
+		if (work != NULL)
+		{
+			work->id = sqlite3_column_int(pstmt, 0);
+			work->topic_id = sqlite3_column_int(pstmt, 1);
+			work->start = sqlite3_column_int(pstmt, 2);
+			work->duration = sqlite3_column_int(pstmt, 3);
+			snprintf(work->description, sizeof(work->description), "%s", (char*) sqlite3_column_text(pstmt, 4));
+		}
+		
+		result = callback();
 		if (result == TRCKR_ITERATION_DONE) {
 			break;
 		}
@@ -170,7 +194,7 @@ query_iterate_last_work(struct trckr_ctx *context, int count, int (*callback)(st
 }
 
 int
-query_iterate_topics_by_name(struct trckr_ctx *context, char* name, int (*callback)(struct data_work_topic*))
+query_iterate_topics_by_name(struct trckr_ctx *context, char* name, struct data_work_topic* topic, int(*callback)())
 {
 	int result;
 	const char *sql = "SELECT id, name, description FROM topic WHERE name LIKE CONCAT('%%', ?1, '%%');";
@@ -183,8 +207,7 @@ query_iterate_topics_by_name(struct trckr_ctx *context, char* name, int (*callba
 
 	sqlite3_bind_text(pstmt, 1, name, -1, NULL);
 
-	struct data_work_topic topic;
-	while(1) {
+	while (1) {
 		result = sqlite3_step(pstmt);
 		if (result == SQLITE_DONE) {
 			break;
@@ -195,10 +218,14 @@ query_iterate_topics_by_name(struct trckr_ctx *context, char* name, int (*callba
 			return TRCKR_ERR_SQL;
 		}
 
-		topic.id = sqlite3_column_int(pstmt, 0);
-		snprintf(topic.name, sizeof(topic.name), "%s", (char*) sqlite3_column_text(pstmt, 1));
-		snprintf(topic.description, sizeof(topic.description), "%s", (char*) sqlite3_column_text(pstmt, 2));
-		result = callback(&topic);
+		if (topic != NULL)
+		{
+			topic->id = sqlite3_column_int(pstmt, 0);
+			snprintf(topic->name, sizeof(topic->name), "%s", (char*) sqlite3_column_text(pstmt, 1));
+			snprintf(topic->description, sizeof(topic->description), "%s", (char*) sqlite3_column_text(pstmt, 2));
+		}
+		
+		result = callback();
 		if (result == TRCKR_ITERATION_DONE) {
 			break;
 		}
@@ -367,8 +394,6 @@ query_commit(struct trckr_ctx* context)
 	return 0;
 }
 
-// begin implementation of trckr.h
-
 int
 trckr_begin(char *path, struct trckr_ctx* out_context)
 {
@@ -439,6 +464,30 @@ trckr_get_topic_by_id(struct trckr_ctx *context, int id, struct data_work_topic*
 }
 
 int
+trckr_get_status(struct trckr_ctx *context, struct data_status *out_status)
+{
+	int result = query_transaction(context);
+	if (result != 0) {
+		return result;
+	}
+
+	result = query_get_open_work(context, &out_status->work);
+	if (result != 0) {
+		query_rollback(context);
+		return result;
+	}
+
+	int topic_id = out_status->work.topic_id;
+	result = query_get_topic_by_id(context, topic_id, &out_status->topic);
+	if (result != 0) {
+		query_rollback(context);
+		return result;
+	}
+
+	return query_commit(context);
+}
+
+int
 trckr_start_work(struct trckr_ctx *context, int topic_id, char* description, time_t time, int* out_id)
 {
 	int result;
@@ -459,6 +508,11 @@ trckr_start_work(struct trckr_ctx *context, int topic_id, char* description, tim
 		// some error occured
 		query_rollback(context);
 		return result;
+	}
+
+	if (description == NULL) {
+		query_rollback(context);
+		return TRCKR_ERR_INVALID_INPUT;
 	}
 
 	result = query_create_work(context, time, topic_id, description, out_id);
@@ -536,9 +590,9 @@ trckr_create_topic(struct trckr_ctx *context, char* name, char* description)
 }
 
 int
-trckr_iterate_topics_by_name(struct trckr_ctx *context, char* name, int (*callback)(struct data_work_topic*))
+trckr_iterate_topics_by_name(struct trckr_ctx *context, char* name, struct data_work_topic* topic, int(*callback)())
 {
-	return query_iterate_topics_by_name(context, name, callback);
+	return query_iterate_topics_by_name(context, name, topic, callback);
 }
 
 int

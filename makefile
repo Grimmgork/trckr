@@ -1,4 +1,4 @@
-trckr : ./arena/arena.c main.c ./sqlite3/sqlite3.o
+trckr : ./arena/arena.c main.c trckr.c ./sqlite3/sqlite3.o
 	gcc -o trckr \
 		main.c trckr.c ./sqlite3/sqlite3.o ./arena/arena.c  \
 		-I. -I./sqlite3 -I./arena
