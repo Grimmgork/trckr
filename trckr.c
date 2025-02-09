@@ -633,3 +633,14 @@ trckr_switch_work(struct trckr_ctx *context, time_t time, int topic_id, char* de
 
 	return query_commit(context);
 }
+
+int
+sub_align_start_times(struct trckr_ctx *context, int skip)
+{
+	int result;
+	// query all work for the day skip prarmeter
+	// start with second work
+	// foreach 
+	//    start = prev.start + prev.duration
+	// 
+}

@@ -41,6 +41,7 @@ struct data_status {
 };
 
 typedef char trckr_text[256];
+typedef char trckr_small_text[16];
 
 // struct data_work_aggregate {
 //	struct data_work work;

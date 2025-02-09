@@ -1,13 +1,6 @@
 # trckr
 
-trckr start [topic] [time]	// start work at specific time
-trckr start [topic]         // start work after last closed work
-
-
-
 // pushes work on top of the selected work
-trckr push [topic] [start] [duration]
-trckr push [topic] [start] [end]
 trckr push [topic] [duration]
 trckr push [topic] // does only work on top of the stack
 
