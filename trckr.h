@@ -2,6 +2,8 @@
 #include <sqlite3.h>
 #include <time.h>
 
+#define TRCKR_MINIMUM_INTERVAL_SECONDS 60
+
 #define TRCKR_OFFSET 1000
 #define TRCKR_ERR 1 + TRCKR_OFFSET
 #define TRCKR_ERR_SQL 2 + TRCKR_OFFSET
@@ -13,6 +15,7 @@
 #define TRCKR_ERR_NAME_TAKEN 8 + TRCKR_OFFSET
 #define TRCKR_ERR_INVALID_INPUT 9 + TRCKR_OFFSET
 #define TRCKR_ITERATION_DONE 10 + TRCKR_OFFSET
+#define TRCKR_DESCRIPTION_TOO_LONG 11 + TRCKR_OFFSET
 
 struct trckr_ctx {
 	sqlite3 *db;
@@ -37,6 +40,8 @@ struct data_status {
 	struct data_work_topic topic;
 };
 
+typedef char trckr_text[256];
+
 // struct data_work_aggregate {
 //	struct data_work work;
 //	struct data_work_topic topic;
@@ -48,7 +53,7 @@ struct data_status {
 //	char[16] name;
 // };
 
-int trckr_begin(char* dbpath, struct trckr_ctx* out_context);
+int trckr_begin(char* path, struct trckr_ctx* out_context);
 void trckr_end(struct trckr_ctx* context);
 int trckr_init(char* path);
 
@@ -62,5 +67,4 @@ int trckr_switch_work(struct trckr_ctx *context, time_t time, int topic_id, char
 int trckr_create_topic(struct trckr_ctx *context, char *name, char *description);
 int trckr_iterate_topics_by_name(struct trckr_ctx *context, char* name, struct data_work_topic *topic, int (*callback)());
 int trckr_iterate_last_work(struct trckr_ctx *context, struct data_work *work, int count, int (*callback)());
-int trckr_print_report(struct trckr_ctx *context, FILE* handle, time_t from, time_t to);
 int trckr_get_status(struct trckr_ctx *context, struct data_status *out_status);

@@ -93,7 +93,7 @@ query_get_open_work(struct trckr_ctx *context, struct data_work* out_work)
 }
 
 int
-query_create_work(struct trckr_ctx *context, time_t start, int topic_id, char* description, int* out_id)
+query_start_work(struct trckr_ctx *context, time_t start, int topic_id, char* description, int* out_id)
 {
 	const char *sql = "INSERT INTO work (topic_id, start, description) VALUES (?1, ?2, ?3);";
 	int result;
@@ -421,10 +421,10 @@ trckr_init(char* path)
 	FILE *ptr;
 	ptr = fopen(path, "r"); 
 	if (ptr != NULL) {
+		fclose(ptr);
 		return TRCKR_ERR_INITIALIZED;
 	}
-	fclose(ptr);
-
+	
 	sqlite3 *db;
 	int result;
 	result = sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE , NULL);
@@ -510,12 +510,12 @@ trckr_start_work(struct trckr_ctx *context, int topic_id, char* description, tim
 		return result;
 	}
 
-	if (description == NULL) {
+	if (description == NULL || strlen(description) > sizeof(work.description)) {
 		query_rollback(context);
 		return TRCKR_ERR_INVALID_INPUT;
 	}
 
-	result = query_create_work(context, time, topic_id, description, out_id);
+	result = query_start_work(context, time, topic_id, description, out_id);
 	if (result != 0) {
 		query_rollback(context);
 		return result;
@@ -547,7 +547,8 @@ trckr_stop_work(struct trckr_ctx *context, time_t time)
 		return result;
 	}
 
-	result = query_stop_work(context, work.id, time);
+	int duration = time - work.start;
+	result = query_stop_work(context, work.id, duration);
 	if (result != 0) {
 		query_rollback(context);
 		return result;
@@ -560,7 +561,7 @@ int
 trckr_create_topic(struct trckr_ctx *context, char* name, char* description)
 {
 	int result;
-	if (name == NULL) {
+	if (name == NULL || strlen(name) > sizeof()) {
 		return TRCKR_ERR_INVALID_INPUT;
 	}
 
@@ -624,7 +625,7 @@ trckr_switch_work(struct trckr_ctx *context, time_t time, int topic_id, char* de
 	}
 	
 	int id;
-	result = query_create_work(context, time, topic_id, description, &id);
+	result = query_start_work(context, time, topic_id, description, &id);
 	if (result != 0) {
 		query_rollback(context);
 		return result;

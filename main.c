@@ -233,6 +233,13 @@ cmd_start(struct trckr_ctx* context, int argc, char* argv[])
 	}
 
 	char* description = shiftarg(&argc, &argv);
+	char buffer[sizeof(struct data_work.description)];
+	
+	if (description == NULL) {
+		printf("Description:\n");
+		fgets(buffer, sizeof(struct data_work->description), stdin);
+	}
+
 	int id;
 	return trckr_start_work(context, topic.id, description, timestamp, &id);
 }
