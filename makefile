@@ -1,13 +1,16 @@
-trckr : ./arena/arena.c main.c trckr.c ./sqlite3/sqlite3.o
+trckr : ./arena/arena.c main.c ./trckr/trckr.c ./sqlite3/sqlite3.o
 	gcc -o trckr \
-		main.c trckr.c ./sqlite3/sqlite3.o ./arena/arena.c  \
-		-I. -I./sqlite3 -I./arena
+		main.c ./trckr/trckr.c ./sqlite3/sqlite3.o ./arena/arena.c  \
+		-I./trckr -I./sqlite3 -I./arena 
 
 ./sqlite3/sqlite3.o :
 	gcc -o ./sqlite3/sqlite3.o -c ./sqlite3/sqlite3.c
 
 clean :
-	rm ./trckr ./trckr.exe ./sqlite3/sqlite3.o
+	rm ./trckr.exe ./sqlite3/sqlite3.o
 
 test : trckr
-	trckr
+	trckr.exe
+
+assert : trckr
+	trckr.exe

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <trckr.h>
+#include <assert.h>
 
 #include <arena.h>
 
@@ -42,7 +43,7 @@ get_error_message(int error) {
 		case TRCKR_ERR_INITIALIZED: return "Already initialized.";
 		case TRCKR_ERR_NAME_TAKEN: return "Name is taken.";
 		case TRCKR_ERR_INVALID_INPUT: return "Invalid input.";
-		default: return "An error occured.";
+		default: return "Unknown error occured.";
 	}
 }
 
@@ -53,11 +54,11 @@ print_error_message(int error) {
 }
 
 char*
-str_cat_dyn(char* a, char* b)
+str_cat_dyn(struct arena* arena, char* a, char* b)
 {
 	int al = strlen(a);
 	int bl = strlen(b);
-	char* result = malloc(al + bl + 1);
+	char* result = arena_push(arena, al + bl + 1);
 	strcpy(result, a);
 	strcpy(result + al, b);
 	return result;
@@ -77,7 +78,7 @@ shiftarg(int *argc, char **argv[])
 }
 
 char*
-get_db_path()
+get_db_path(struct arena* arena)
 {
 	#if __linux__
 		char* variable = "HOME";
@@ -86,7 +87,7 @@ get_db_path()
 	#endif
 	char* name = "/.trckr.db";
 	char* dir = getenv(variable);
-	return str_cat_dyn(dir, name);
+	return str_cat_dyn(arena, dir, name);
 }
 
 int
@@ -96,14 +97,20 @@ main(int argc, char *argv[])
 	shiftarg(&argc, &argv);
 	char* command = shiftarg(&argc, &argv);
 
-	char* dbpath = get_db_path();
+	struct arena* arena = arena_init();
+	if (arena == NULL) {
+		return ERR_MALLOC;
+	}
+
+	char* dbpath = get_db_path(arena);
 	if (dbpath == NULL) {
+		arena_free(arena);
 		return ERR_MALLOC;
 	}
 	
 	if (command != NULL && !strcmp(command, "init")) {
-		result = trckr_init(dbpath);
-		free(dbpath);
+		result = trckr_initialize(dbpath);
+		arena_free(arena);
 		if (result != 0) print_error_message(result);
 		return result;
 	}
@@ -111,31 +118,36 @@ main(int argc, char *argv[])
 	struct trckr_ctx context;
 	result = trckr_begin(dbpath, &context);
 	if (result != 0) {
-		free(dbpath);
+		arena_free(arena);
 		if (result != 0) print_error_message(result);
 		return result;
 	}
 
 	if (command == NULL) {
 		result = cmd_status(&context, argc, argv);
-		trckr_end(&context);
-		free(dbpath);
-		if (result != 0) print_error_message(result);
-		return result;
+	}
+	else
+	{
+		result = cmd_route(&context, command, argc, argv, 12,
+			"status", cmd_status,
+			"start", cmd_start,
+			"add", cmd_add,
+			"stop", cmd_stop,
+			"topic", cmd_topic,
+			"report", cmd_report
+		);
 	}
 
-	result = cmd_route(&context, command, argc, argv, 12,
-		"status", cmd_status,
-		"start", cmd_start,
-		"add", cmd_add,
-		"stop", cmd_stop,
-		"topic", cmd_topic,
-		"report", cmd_report
-	);
-
-	trckr_end(&context);
-	free(dbpath);
-	if (result != 0) print_error_message(result);
+	if (result == 0) {
+		trckr_end(&context);
+	}
+	else
+	{
+		print_error_message(result);
+		trckr_end_rollback(&context);
+	}
+	
+	arena_free(arena);
 	return result;
 }
 
@@ -175,6 +187,7 @@ cmd_status(struct trckr_ctx* context, int argc, char *argv[])
 	int result;
 	struct data_status status;
 	result = trckr_get_status(context, &status);
+
 	if (result == TRCKR_NOT_FOUND) {
 		printf("no open work.\n");
 		return 0;
@@ -206,12 +219,19 @@ cmd_report(struct trckr_ctx* context, int argc, char *argv[])
 int
 cmd_start(struct trckr_ctx* context, int argc, char* argv[])
 {
-	char* name = shiftarg(&argc, &argv);
-	if (name == NULL) {
+	char *arg = shiftarg(&argc, &argv);
+	int result;
+
+	if (arg == NULL) {
 		return ERR_INVALID_ARGS;
 	}
 
-	int result;
+	trckr_text_small name;
+	result = trckr_parse_text_small(arg, name);
+	if (result != 0) {
+		return ERR_INVALID_ARGS;
+	}
+
 	time_t timestamp;
 
 	if (argc > 0)
@@ -232,14 +252,18 @@ cmd_start(struct trckr_ctx* context, int argc, char* argv[])
 		return result;
 	}
 
-	char* description = shiftarg(&argc, &argv);
-	char buffer[sizeof(struct data_work.description)];
-	
-	if (description == NULL) {
+	arg = shiftarg(&argc, &argv);
+	trckr_text description;
+	if (arg == NULL) {
 		printf("Description:\n");
-		fgets(buffer, sizeof(struct data_work->description), stdin);
+		fgets(description, sizeof(description), stdin);
 	}
 
+	result = trckr_parse_text_small(arg, name);
+	if (result != 0) {
+		return ERR_INVALID_ARGS;
+	}
+	
 	int id;
 	return trckr_start_work(context, topic.id, description, timestamp, &id);
 }
@@ -276,21 +300,54 @@ cmd_add(struct trckr_ctx* context, int argc, char *argv[])
 int
 cmd_add_topic(struct trckr_ctx* context, int argc, char *argv[])
 {
-	char* name = shiftarg(&argc, &argv);
-	char* description = shiftarg(&argc, &argv);
+	char* arg;
+	int result;
+
+	arg = shiftarg(&argc, &argv);
+	if (arg == NULL) {
+		return ERR_INVALID_ARGS;
+	}
+
+	trckr_text_small name;
+	result = trckr_parse_text_small(arg, name);
+	if (result != 0) {
+		return ERR_INVALID_ARGS;
+	}
+
+	arg = shiftarg(&argc, &argv);
+	if (arg == NULL) {
+		return ERR_INVALID_ARGS;
+	}
+
+	trckr_text description;
+	result = trckr_parse_text(arg, description);
+	if (result != 0) {
+		return ERR_INVALID_ARGS;
+	}
+
 	return trckr_create_topic(context, name, description);
 }
 
 int
 cmd_topic(struct trckr_ctx* context, int argc, char *argv[])
 {
-	char* search = shiftarg(&argc, &argv);
+	int result;
+	char* arg;
+	arg = shiftarg(&argc, &argv);
+
+	trckr_text_small search;
+	result = trckr_parse_text_small(arg, search);
+	if (result != 0) {
+		return ERR_INVALID_ARGS;
+	}
+
 	struct data_work_topic topic;
 	int callback()
 	{
 		printf("%s - %s\n", topic.name, topic.description);
 		return 0;
 	}
+
 	return trckr_iterate_topics_by_name(context, search, &topic, callback);
 }
 
