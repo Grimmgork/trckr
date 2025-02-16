@@ -12,6 +12,9 @@
 #define ERR_CMD_NOT_FOUND 2
 #define ERR_BAD_PROGRAMMING 3
 #define ERR_MALLOC 4
+#define ERR_MISSING_ARGS 5
+#define ERR_INPUT_ABORTED 6
+#define ERR_INVALID_INPUT 7
 
 int unixtime_from_args(int *argc, char **argv[], time_t* out_time);
 
@@ -33,6 +36,9 @@ get_error_message(int error) {
 		case ERR_CMD_NOT_FOUND: return "Command not found.";
 		case ERR_BAD_PROGRAMMING: return "Bad programming.";
 		case ERR_MALLOC: return "Allocation failed.";
+		case ERR_MISSING_ARGS: return "Missing arguments.";
+		case ERR_INVALID_INPUT: return "Invalid input.";
+		case ERR_INPUT_ABORTED: return "Input aborted.";
 
 		case TRCKR_ERR: return "An error occured.";
 		case TRCKR_ERR_SQL: return "SQL error occured.";
@@ -43,6 +49,7 @@ get_error_message(int error) {
 		case TRCKR_ERR_INITIALIZED: return "Already initialized.";
 		case TRCKR_ERR_NAME_TAKEN: return "Name is taken.";
 		case TRCKR_ERR_INVALID_INPUT: return "Invalid input.";
+		case TRCKR_ERR_TEXT_TOO_LONG: return "Text is too long.";
 		default: return "Unknown error occured.";
 	}
 }
@@ -88,6 +95,42 @@ get_db_path(struct arena* arena)
 	char* name = "/.trckr.db";
 	char* dir = getenv(variable);
 	return str_cat_dyn(arena, dir, name);
+}
+
+int
+prompt_line(char *str, int n)
+{
+	assert(str != NULL);
+	assert(n != 0);
+
+	if (n == 1) {
+		str[0] = 0;
+		return 0;
+	}
+
+	int i;
+	char c;
+	for (i = 0; i < n-1; i++) {
+		c = getc(stdin);
+		if (c == '\n' || c == EOF)
+		{
+			if (ferror(stdin)) {
+				return ERR_INPUT_ABORTED;
+			}
+			break;
+		}
+		str[i] = c;
+	}
+	str[i] = 0;
+
+	int result = 0;
+	// clear the buffer / read until newline
+	while(!(c == '\n' || c == EOF)) {
+		result = ERR_INVALID_INPUT;
+		c = getc(stdin);
+	}
+
+	return result;
 }
 
 int
@@ -139,9 +182,10 @@ main(int argc, char *argv[])
 	}
 
 	if (result == 0) {
-		trckr_end(&context);
+		result = trckr_end(&context);
 	}
-	else
+	
+	if (result != 0)
 	{
 		print_error_message(result);
 		trckr_end_rollback(&context);
@@ -167,7 +211,7 @@ cmd_route(struct trckr_ctx* context, char* name, int argc, char *argv[], int cou
 
 	int i;
 	int iterations = count / 2;
-	for (i=0; i<iterations; i++)
+	for (i=0; i < iterations; i++)
 	{
 		char* match = va_arg(args, char*);
 		int (*handler)(struct trckr_ctx*, int, char*[]) = va_arg(args, int (*)(struct trckr_ctx*, int, char *[]));
@@ -223,7 +267,7 @@ cmd_start(struct trckr_ctx* context, int argc, char* argv[])
 	int result;
 
 	if (arg == NULL) {
-		return ERR_INVALID_ARGS;
+		return ERR_MISSING_ARGS;
 	}
 
 	trckr_text_small name;
@@ -256,12 +300,10 @@ cmd_start(struct trckr_ctx* context, int argc, char* argv[])
 	trckr_text description;
 	if (arg == NULL) {
 		printf("Description:\n");
-		fgets(description, sizeof(description), stdin);
-	}
-
-	result = trckr_parse_text_small(arg, name);
-	if (result != 0) {
-		return ERR_INVALID_ARGS;
+		result = prompt_line(description, sizeof(description));
+		if (result != 0) {
+			return result;
+		}
 	}
 	
 	int id;
@@ -305,24 +347,24 @@ cmd_add_topic(struct trckr_ctx* context, int argc, char *argv[])
 
 	arg = shiftarg(&argc, &argv);
 	if (arg == NULL) {
-		return ERR_INVALID_ARGS;
+		return ERR_MISSING_ARGS;
 	}
 
 	trckr_text_small name;
 	result = trckr_parse_text_small(arg, name);
 	if (result != 0) {
-		return ERR_INVALID_ARGS;
+		return result;
 	}
 
 	arg = shiftarg(&argc, &argv);
 	if (arg == NULL) {
-		return ERR_INVALID_ARGS;
+		return ERR_MISSING_ARGS;
 	}
 
 	trckr_text description;
 	result = trckr_parse_text(arg, description);
 	if (result != 0) {
-		return ERR_INVALID_ARGS;
+		return result;
 	}
 
 	return trckr_create_topic(context, name, description);
