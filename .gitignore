@@ -1,5 +1,6 @@
 *.o
 trckr
+!trckr/
 trckr.exe
 data.db
 trckr.db
