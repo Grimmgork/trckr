@@ -3,11 +3,11 @@
 #include <stdlib.h>
 #include <trckr.h>
 #include <time.h>
+#include "stack.c"
 #include "query.c"
 
-
 int
-trckr_parse_text(char* str, trckr_text buffer)
+trckr_parse_text(const char* str, trckr_text buffer)
 {
 	assert(str != NULL);
 	assert(buffer != NULL);
@@ -23,7 +23,7 @@ trckr_parse_text(char* str, trckr_text buffer)
 }
 
 int
-trckr_parse_text_small(char* str, trckr_text_small buffer)
+trckr_parse_text_small(const char* str, trckr_text_small buffer)
 {
 	assert(str != NULL);
 	assert(buffer != NULL);
@@ -69,7 +69,12 @@ trckr_begin(char *path, struct trckr_ctx* out_context)
 int
 trckr_end(struct trckr_ctx *context)
 {
-	int result = query_commit(context);
+	int result = query_write_context(context);
+	if (result != 0) {
+		return result;
+	}
+
+	result = query_commit(context);
 	if (result != 0) {
 		return result;
 	}
@@ -296,18 +301,14 @@ int
 sub_align_start_times(struct trckr_ctx *context, int skip)
 {
 	int result;
-	// query current day data
 	// query all work for the day skip prarmeter
+	// save into stack
 	// start with second work
-	// foreach 
+	// foreach work in stack
 	//    start = prev.start + prev.duration
 	// 
-}
 
-int
-sub_set_context(struct trckr_ctx *context, int day, int index)
-{
-
+	return 0;
 }
 
 int
@@ -317,5 +318,41 @@ trckr_push_work(struct trckr_ctx *context, int work_type_id, char* description, 
 	// read starttime + duration
 	// create new work with start at end of selected work
 	// run align start times 
+	return 0;
 }
 
+int
+trckr_select_today()
+{
+	// select today
+	// move cursor to top of stack
+	// write status
+	return 0;
+}
+
+int
+trckr_select_day()
+{
+	// select specified day
+	// move cursor to top of stack
+	// write status
+	return 0;
+}
+
+int
+trckr_move_cursor_first()
+{
+	return 0;
+}
+
+int
+trckr_move_cursor_last()
+{
+	
+}
+
+int
+trckr_move_cursor()
+{
+
+}

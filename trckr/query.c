@@ -510,15 +510,86 @@ query_commit(struct trckr_ctx* context)
 }
 
 int
-query_align_start_times(struct trckr_ctx* context, int skip)
+query_update_work_time(struct trckr_ctx* context, int id, int start, int duration)
 {
 	int result;
-	const char *sql = "SELECT id, name, description FROM topic WHERE name = ?1;";
+	const char *sql = "UPDATE work SET start=?1, duration=?2 WHERE id=?3;";
 	sqlite3_stmt *pstmt;
 	result = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);
 	if (result != SQLITE_OK) {
 		sqlite3_finalize(pstmt);
 		return TRCKR_ERR_SQL;
+	}
+
+	sqlite3_bind_int(pstmt, 1, start);
+	sqlite3_bind_int(pstmt, 2, duration);
+	sqlite3_bind_int(pstmt, 3, id);
+
+	result = sqlite3_step(pstmt);
+	if (result != SQLITE_DONE) {
+		sqlite3_finalize(pstmt);
+		return TRCKR_ERR_SQL;
+	}
+
+	sqlite3_finalize(pstmt);
+	return 0;
+}
+
+int
+query_iterate_work_day(struct trckr_ctx* context, int skip, struct data_work *work, int(*callback)())
+{
+	assert(work != NULL);
+	assert(callback != NULL);
+	assert(skip >= 0);
+
+	int result;
+	const char *sql = "SELECT id, topic_id, start, duration, description FROM work WHERE start > ?1 AND start < ?2 ORDER BY start SKIP ?3;";
+	sqlite3_stmt *pstmt;
+	result = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);
+	if (result != SQLITE_OK) {
+		sqlite3_finalize(pstmt);
+		return TRCKR_ERR_SQL;
+	}
+
+	int start = context->day * 86400;
+	int end = (context->day + 1) * 86400;
+
+	sqlite3_bind_int(pstmt, 1, start);
+	sqlite3_bind_int(pstmt, 2, end);
+	sqlite3_bind_int(pstmt, 3, skip);
+
+	while (1)
+	{
+		result = sqlite3_step(pstmt);
+		if (result == SQLITE_DONE) {
+			break;
+		}
+
+		if (result != SQLITE_ROW) {
+			sqlite3_finalize(pstmt);
+			return TRCKR_ERR_SQL;
+		}
+
+		work->id = sqlite3_column_int(pstmt, 0);
+		work->topic_id = sqlite3_column_int(pstmt, 1);
+		work->start = sqlite3_column_int(pstmt, 2);
+		work->duration = sqlite3_column_int(pstmt, 3);
+		result = trckr_parse_text(sqlite3_column_text(pstmt, 4), work->description);
+		if (result != 0) {
+			return result;
+		}
+
+		result = callback();
+		if (result == TRCKR_ITERATION_DONE) {
+			sqlite3_finalize(pstmt);
+			return 0;
+		}
+
+		if (result != 0) {
+			// error occured
+			sqlite3_finalize(pstmt);
+			return result;
+		}
 	}
 }
 

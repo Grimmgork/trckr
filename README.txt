@@ -8,8 +8,8 @@ trckr stop [time]    // stop open work at time
 
 trckr pop   // removes the work at the cursor
 
-trckr select day [date]
-trckr select [work_item]
+trckr select [date]
+trckr cursor [work_item]
 
 trckr status
 

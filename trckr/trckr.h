@@ -77,5 +77,5 @@ int trckr_iterate_topics_by_name(struct trckr_ctx *context, trckr_text_small nam
 int trckr_iterate_last_work(struct trckr_ctx *context, struct data_work *work, int count, int (*callback)());
 int trckr_get_status(struct trckr_ctx *context, struct data_status *out_status);
 
-int trckr_parse_text(char* str, trckr_text buffer);
-int trckr_parse_text_small(char* str, trckr_text_small buffer);
+int trckr_parse_text(const char* str, trckr_text buffer);
+int trckr_parse_text_small(const char* str, trckr_text_small buffer);
