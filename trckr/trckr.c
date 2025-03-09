@@ -5,6 +5,7 @@
 #include <time.h>
 #include "stack.c"
 #include "query.c"
+#include "utils.c"
 
 int
 trckr_parse_text(const char* str, trckr_text buffer)
@@ -133,18 +134,6 @@ trckr_get_topic_by_id(struct trckr_ctx *context, int id, struct data_work_topic*
 }
 
 int
-trckr_get_status(struct trckr_ctx *context, struct data_status *out_status)
-{
-	int result = query_get_open_work(context, &out_status->work);
-	if (result != 0) {
-		return result;
-	}
-
-	int topic_id = out_status->work.topic_id;
-	return query_get_topic_by_id(context, topic_id, &out_status->topic);
-}
-
-int
 trckr_start_work(struct trckr_ctx *context, int topic_id, trckr_text description, time_t time, int* out_id)
 {
 	// TODO
@@ -178,7 +167,7 @@ trckr_start_work(struct trckr_ctx *context, int topic_id, trckr_text description
 		return TRCKR_ERR_INVALID_INPUT;
 	}
 
-	result = query_start_work(context, time, topic_id, description, out_id);
+	result = query_start_work(context, 0, time, topic_id, description, out_id);
 	if (result != 0) {
 		query_rollback(context);
 		return result;
@@ -260,55 +249,59 @@ trckr_iterate_topics_by_name(struct trckr_ctx *context, trckr_text_small name, s
 }
 
 int
-trckr_switch_work(struct trckr_ctx *context, time_t time, int topic_id, trckr_text description)
+sub_shift_start_times(struct trckr_ctx *context, int shift, int skip)
 {
+	if (shift == 0) {
+		return 0;
+	}
+
 	int result;
-	result = query_transaction(context);
-	if (result != 0) {
-		return result;
+	struct trckr_stack* stack = trckr_stack_init();
+	if (stack == NULL) {
+		return TRCKR_ERR_ALLOC;
 	}
 
 	struct data_work work;
-	result = query_get_open_work(context, &work);
-	if (result == 0) {
-		// there is open work
-		result = query_stop_work(context, work.id, time);
-		if (result != 0) {
-			query_rollback(context);
-			return result;
-		}
-	}
-	else
+	int query_iterate_callback()
 	{
-		if (result != TRCKR_NOT_FOUND) {
-			// error occured
-			query_rollback(context);
+		struct data_work *alloc = trckr_stack_push(stack, sizeof(struct data_work));
+		if (alloc == NULL) {
+			return TRCKR_ERR_ALLOC;
+		}
+
+		alloc->id = work.id;
+		alloc->topic_id = work.id;
+		alloc->start = work.start;
+		alloc->duration = work.duration;
+
+		int result = trckr_parse_text(work.description, alloc->description);
+		if (result != 0) {
 			return result;
 		}
+
+		return 0;
 	}
-	
-	int id;
-	result = query_start_work(context, time, topic_id, description, &id);
+
+	result = query_iterate_work_day(context, skip, &work, query_iterate_callback);
 	if (result != 0) {
-		query_rollback(context);
+		trckr_stack_free(stack);
 		return result;
 	}
 
-	return query_commit(context);
-}
+	struct data_work *item = trckr_stack_iterate_reset(stack);
+	item = trckr_stack_iterate_next(stack);
+	while (item != NULL) {
+		result = query_update_work_time(context, item->id, item->start + shift, item->duration);
+		if (result != 0) {
+			trckr_stack_free(stack);
+			return result;
+		}
 
-int
-sub_align_start_times(struct trckr_ctx *context, int skip)
-{
-	int result;
-	// query all work for the day skip prarmeter
-	// save into stack
-	// start with second work
-	// foreach work in stack
-	//    start = prev.start + prev.duration
-	// 
+		item = trckr_stack_iterate_next(stack);
+	}
 
-	return 0;
+	trckr_stack_free(stack);
+	return result;
 }
 
 int
@@ -322,7 +315,7 @@ trckr_push_work(struct trckr_ctx *context, int work_type_id, char* description, 
 }
 
 int
-trckr_select_today()
+trckr_cursor_select_today()
 {
 	// select today
 	// move cursor to top of stack
@@ -331,7 +324,7 @@ trckr_select_today()
 }
 
 int
-trckr_select_day()
+trckr_cursor_select_day()
 {
 	// select specified day
 	// move cursor to top of stack
@@ -340,19 +333,19 @@ trckr_select_day()
 }
 
 int
-trckr_move_cursor_first()
+trckr_cursor_select_first()
 {
 	return 0;
 }
 
 int
-trckr_move_cursor_last()
+trckr_cursor_select_last()
 {
 	
 }
 
 int
-trckr_move_cursor()
+trckr_cursor_select()
 {
 
 }

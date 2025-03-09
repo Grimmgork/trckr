@@ -5,8 +5,9 @@ int
 query_create_schema(sqlite3 *db)
 {
 	const char *sql = "CREATE TABLE IF NOT EXISTS topic(id INTEGER PRIMARY KEY, name TEXT UNIQUE, description TEXT); \
-	                   CREATE TABLE IF NOT EXISTS work(id INTEGER PRIMARY KEY, topic_id INTEGER, start INTEGER, duration INTEGER, description TEXT); \
-					   CREATE TABLE IF NOT EXISTS context(index INTEGER, day INTEGER);";
+	                   CREATE TABLE IF NOT EXISTS work(id INTEGER PRIMARY KEY, stack_id INTEGER, topic_id INTEGER, start INTEGER, duration INTEGER, description TEXT); \
+					   CREATE Table IF NOT EXISTS stack(id INTEGER PRIMARY KEY); \
+					   CREATE TABLE IF NOT EXISTS context(selected_work_id INTEGER);";
 	int result = sqlite3_exec(db, sql, 0, 0, NULL);
 	if (result != SQLITE_OK) {
 		return TRCKR_ERR_SQL;
@@ -103,9 +104,38 @@ query_get_open_work(struct trckr_ctx *context, struct data_work* out_work)
 }
 
 int
-query_start_work(struct trckr_ctx *context, time_t start, int topic_id, trckr_text description, int* out_id)
+query_start_work(struct trckr_ctx *context, int stack_id, time_t start, int topic_id, trckr_text description, int* out_id)
 {
-	const char *sql = "INSERT INTO work (topic_id, start, description) VALUES (?1, ?2, ?3);";
+	const char *sql = "INSERT INTO work (topic_id, stack_id, start, description) VALUES (?1, ?2, ?3, ?4);";
+	
+	sqlite3_stmt *pstmt;
+	int result = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);
+	if (result != SQLITE_OK) {
+		sqlite3_finalize(pstmt);
+		return TRCKR_ERR_SQL;
+	}
+
+	sqlite3_bind_int(pstmt, 1, topic_id);
+	sqlite3_bind_int(pstmt, 2, stack_id);
+	sqlite3_bind_int(pstmt, 3, start);
+	sqlite3_bind_text(pstmt, 4, description, -1, NULL);
+	result = sqlite3_step(pstmt);
+
+	if (result != SQLITE_DONE) {
+		sqlite3_finalize(pstmt);
+		return TRCKR_ERR_SQL;
+	}
+
+	*out_id = sqlite3_last_insert_rowid(context->db);
+
+	sqlite3_finalize(pstmt);
+	return 0;
+}
+
+int
+query_create_stack(struct trckr_ctx *context, int *out_id)
+{
+	const char *sql = "INSERT INTO stack (id) VALUES(NULL);";
 	int result;
 	sqlite3_stmt *pstmt;
 	result = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);
@@ -114,15 +144,14 @@ query_start_work(struct trckr_ctx *context, time_t start, int topic_id, trckr_te
 		return TRCKR_ERR_SQL;
 	}
 
-	sqlite3_bind_int(pstmt, 1, topic_id);
-	sqlite3_bind_int(pstmt, 2, start);
-	sqlite3_bind_text(pstmt, 3, description, -1, NULL);
 	result = sqlite3_step(pstmt);
 
 	if (result != SQLITE_DONE) {
 		sqlite3_finalize(pstmt);
 		return TRCKR_ERR_SQL;
 	}
+
+	*out_id = sqlite3_last_insert_rowid(context->db);
 
 	sqlite3_finalize(pstmt);
 	return 0;
@@ -551,8 +580,8 @@ query_iterate_work_day(struct trckr_ctx* context, int skip, struct data_work *wo
 		return TRCKR_ERR_SQL;
 	}
 
-	int start = context->day * 86400;
-	int end = (context->day + 1) * 86400;
+	int start = 0;// context->day * 86400;
+	int end = 0;// (context->day + 1) * 86400;
 
 	sqlite3_bind_int(pstmt, 1, start);
 	sqlite3_bind_int(pstmt, 2, end);
@@ -596,11 +625,54 @@ query_iterate_work_day(struct trckr_ctx* context, int skip, struct data_work *wo
 int
 query_load_context(struct trckr_ctx* context)
 {
+	const char *sql = "SELECT selected_work_id FROM context WHERE rowid = 0;";
+	int result;
+	sqlite3_stmt *pstmt;
+	result = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);
+	if (result != SQLITE_OK) {
+		sqlite3_finalize(pstmt);
+		return TRCKR_ERR_SQL;
+	}
+
+	result = sqlite3_step(pstmt);
+	if (result == SQLITE_DONE) 
+	{
+		context->work_id = 0;
+	}
+	else if (result == SQLITE_ROW)
+	{
+		context->work_id = sqlite3_column_int(pstmt, 0);
+	}
+	else
+	{
+		sqlite3_finalize(pstmt);
+		return TRCKR_ERR_SQL;
+	}
+
+	sqlite3_finalize(pstmt);
 	return 0;
 }
 
 int
 query_write_context(struct trckr_ctx* context)
 {
+	// TODO sql wrong
+	const char *sql = "INSERT INTO context(selected_work_id) VALUES(?1) \
+	                   ON CONFLICT(rowid) DO UPDATE SET selected_work_id=?1 FROM context WHERE rowid = 0;";
+	int result;
+	sqlite3_stmt *pstmt;
+	result = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);
+	if (result != SQLITE_OK) {
+		sqlite3_finalize(pstmt);
+		return TRCKR_ERR_SQL;
+	}
+
+	result = sqlite3_step(pstmt);
+	if (result != SQLITE_DONE) {
+		sqlite3_finalize(pstmt);
+		return TRCKR_ERR_SQL;
+	}
+
+	sqlite3_finalize(pstmt);
 	return 0;
 }

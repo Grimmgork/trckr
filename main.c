@@ -228,29 +228,7 @@ cmd_route(struct trckr_ctx* context, char* name, int argc, char *argv[], int cou
 int
 cmd_status(struct trckr_ctx* context, int argc, char *argv[])
 {
-	int result;
-	struct data_status status;
-	result = trckr_get_status(context, &status);
-
-	if (result == TRCKR_NOT_FOUND) {
-		printf("no open work.\n");
-		return 0;
-	}
-
-	if (result != 0) {
-		return result;
-	}
-
-	char buffer[32] = "";
-	struct tm t = *localtime(&status.work.start);
-
-	strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M", &t);
-
-	printf("# open work:\n");
-	printf("topic:\t%s\n", status.topic.name);
-	printf("desc.:\t%s\n", status.work.description);
-	printf("start:\t%s\n", buffer);
-	printf("for:\t%dm\n", (time(NULL) - status.work.start) / 60);
+	printf("asdf");
 	return 0;
 }
 

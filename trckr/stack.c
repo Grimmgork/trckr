@@ -5,6 +5,7 @@
 
 struct trckr_stack {
 	int length;
+	struct trckr_stack_item *iterator;
 	struct trckr_stack_item *first;
 	struct trckr_stack_item *last;
 };
@@ -43,31 +44,20 @@ trckr_stack_push(struct trckr_stack* stack, size_t size)
 	return item->data;
 }
 
-int
-trckr_stack_iterate(struct trckr_stack* stack, int (*callback)(void* item))
+void*
+trckr_stack_iterate_next(struct trckr_stack* stack)
 {
-	assert(callback != NULL);
-	assert(stack != NULL);
+	assert(stack->iterator != NULL);
 
-	if (stack->length == 0) {
-		return 0;
-	}
+	stack->iterator = stack->iterator->next;
+	return stack->iterator;
+}
 
-	struct trckr_stack_item* item = stack->first;
-	while (item != NULL)
-	{
-		int result = callback(item->data);
-		if (result != 0) {
-			if (result == TRCKR_ITERATION_DONE) {
-				return 0;
-			}
-			return result;
-		}
-
-		item = item->next;
-	}
-
-	return 0;
+void*
+trckr_stack_iterate_reset(struct trckr_stack* stack)
+{
+	stack->iterator = stack->first;
+	return stack->iterator;
 }
 
 int
@@ -95,5 +85,6 @@ trckr_stack_init()
 	stack->length = 0;
 	stack->first = NULL;
 	stack->last = NULL;
+	stack->iterator = NULL;
 	return stack;
 }

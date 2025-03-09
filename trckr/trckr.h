@@ -24,8 +24,7 @@ typedef char trckr_text_small[16];
 struct trckr_ctx {
 	sqlite3 *db;
 	char transaction_depth;
-	int day;
-	int index;
+	int work_id;
 };
 
 struct data_work {
@@ -33,6 +32,7 @@ struct data_work {
 	int topic_id;
 	time_t start;
 	time_t duration;
+	int stack_id;
 	trckr_text description;
 };
 
@@ -69,13 +69,12 @@ int trckr_get_topic_by_name(struct trckr_ctx *context, trckr_text_small name, st
 int trckr_get_topic_by_id(struct trckr_ctx *context, int id, struct data_work_topic *out_topic);
 int trckr_get_open_work(struct trckr_ctx *context, struct data_work *out_work);
 int trckr_get_work_by_id(struct trckr_ctx *context, int id, struct data_work *out_work);
+
 int trckr_start_work(struct trckr_ctx *context, int topic_id, trckr_text description, time_t time, int *out_id);
 int trckr_stop_work(struct trckr_ctx *context, time_t time);
-int trckr_switch_work(struct trckr_ctx *context, time_t time, int topic_id, trckr_text description);
 int trckr_create_topic(struct trckr_ctx *context, trckr_text_small name, trckr_text description);
 int trckr_iterate_topics_by_name(struct trckr_ctx *context, trckr_text_small name, struct data_work_topic *topic, int (*callback)());
 int trckr_iterate_last_work(struct trckr_ctx *context, struct data_work *work, int count, int (*callback)());
-int trckr_get_status(struct trckr_ctx *context, struct data_status *out_status);
 
 int trckr_parse_text(const char* str, trckr_text buffer);
 int trckr_parse_text_small(const char* str, trckr_text_small buffer);
