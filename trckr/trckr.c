@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <trckr.h>
 #include <time.h>
-#include "stack.c"
+#include "list.c"
 #include "query.c"
 #include "utils.c"
 
@@ -134,14 +134,8 @@ trckr_get_topic_by_id(struct trckr_ctx *context, int id, struct data_work_topic*
 }
 
 int
-trckr_start_work(struct trckr_ctx *context, int topic_id, trckr_text description, time_t time, int* out_id)
+trckr_start_work(struct trckr_ctx *context, int topic_id, trckr_text description, int *out_id)
 {
-	// TODO
-	// query selected work
-	// read starttime + duration
-	// create new work with start at end of first work
-	// run align start times 
-
 	int result;
 	result = query_transaction(context);
 	if (result != 0) {
@@ -151,28 +145,28 @@ trckr_start_work(struct trckr_ctx *context, int topic_id, trckr_text description
 	struct data_work work;
 	result = query_get_open_work(context, &work);
 	if (result == 0) {
-		// there is open work
 		query_rollback(context);
 		return TRCKR_ERR_OPEN_WORK;
 	}
 
 	if (result != TRCKR_NOT_FOUND) {
-		// some error occured
 		query_rollback(context);
 		return result;
 	}
 
-	if (description == NULL || strlen(description) > sizeof(work.description)) {
-		query_rollback(context);
-		return TRCKR_ERR_INVALID_INPUT;
-	}
-
-	result = query_start_work(context, 0, time, topic_id, description, out_id);
+	result = query_get_work_by_id(context, context->work_id, &work);
 	if (result != 0) {
 		query_rollback(context);
 		return result;
 	}
-	
+
+	int start = work.start + work.duration;
+	result = query_start_work(context, work.stack_id, start, topic_id, description, out_id);
+	if (result != 0) {
+		query_rollback(context);
+		return result;
+	}
+
 	return query_commit(context);
 }
 
@@ -249,22 +243,22 @@ trckr_iterate_topics_by_name(struct trckr_ctx *context, trckr_text_small name, s
 }
 
 int
-sub_shift_start_times(struct trckr_ctx *context, int shift, int skip)
+sub_shift_start_times(struct trckr_ctx *context, int stack_id, int shift, int skip)
 {
 	if (shift == 0) {
 		return 0;
 	}
 
 	int result;
-	struct trckr_stack* stack = trckr_stack_init();
-	if (stack == NULL) {
+	struct trckr_list* list = trckr_list_init();
+	if (list == NULL) {
 		return TRCKR_ERR_ALLOC;
 	}
 
 	struct data_work work;
 	int query_iterate_callback()
 	{
-		struct data_work *alloc = trckr_stack_push(stack, sizeof(struct data_work));
+		struct data_work *alloc = trckr_list_push(list, sizeof(struct data_work));
 		if (alloc == NULL) {
 			return TRCKR_ERR_ALLOC;
 		}
@@ -284,23 +278,23 @@ sub_shift_start_times(struct trckr_ctx *context, int shift, int skip)
 
 	result = query_iterate_work_day(context, skip, &work, query_iterate_callback);
 	if (result != 0) {
-		trckr_stack_free(stack);
+		trckr_list_free(list);
 		return result;
 	}
 
-	struct data_work *item = trckr_stack_iterate_reset(stack);
-	item = trckr_stack_iterate_next(stack);
+	struct data_work *item = trckr_list_iterate_reset(list);
+	item = trckr_list_iterate_next(list);
 	while (item != NULL) {
 		result = query_update_work_time(context, item->id, item->start + shift, item->duration);
 		if (result != 0) {
-			trckr_stack_free(stack);
+			trckr_list_free(list);
 			return result;
 		}
 
-		item = trckr_stack_iterate_next(stack);
+		item = trckr_list_iterate_next(list);
 	}
 
-	trckr_stack_free(stack);
+	trckr_list_free(list);
 	return result;
 }
 

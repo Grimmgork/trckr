@@ -104,6 +104,45 @@ query_get_open_work(struct trckr_ctx *context, struct data_work* out_work)
 }
 
 int
+query_get_work_by_id(struct trckr_ctx *context, int id, struct data_work* out_work)
+{
+	char *sql = "SELECT id, topic_id, start, duration, stack_id, description FROM work WHERE id IS ?1;";
+	sqlite3_stmt *pstmt;
+	int result;
+	result = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);
+
+	if (result != SQLITE_OK) {
+		sqlite3_finalize(pstmt);
+		return TRCKR_ERR_SQL;
+	}
+
+	result = sqlite3_step(pstmt);
+	if (result == SQLITE_DONE) {
+		sqlite3_finalize(pstmt);
+		return TRCKR_NOT_FOUND;
+	}
+
+	if (result != SQLITE_ROW) {
+		sqlite3_finalize(pstmt);
+		return TRCKR_ERR_SQL;
+	}
+
+	out_work->id = sqlite3_column_int(pstmt, 0);
+	out_work->topic_id = sqlite3_column_int(pstmt, 1);
+	out_work->start = sqlite3_column_int(pstmt, 2);
+	out_work->duration = sqlite3_column_int(pstmt, 3);
+	out_work->stack_id = sqlite3_column_int(pstmt, 4);
+	result = trckr_parse_text(sqlite3_column_text(pstmt, 5), out_work->description);
+	if (result != 0) {
+		sqlite3_finalize(pstmt);
+		return result;
+	}
+
+	sqlite3_finalize(pstmt);
+	return 0;
+}
+
+int
 query_start_work(struct trckr_ctx *context, int stack_id, time_t start, int topic_id, trckr_text description, int* out_id)
 {
 	const char *sql = "INSERT INTO work (topic_id, stack_id, start, description) VALUES (?1, ?2, ?3, ?4);";
@@ -178,56 +217,6 @@ query_stop_work(struct trckr_ctx *context, int work_id, int duration)
 		return TRCKR_ERR_SQL;
 	}
 
-	sqlite3_finalize(pstmt);
-	return 0;
-}
-
-int
-query_iterate_last_work(struct trckr_ctx *context, struct data_work* work, int count, int (*callback)())
-{
-	int result;
-	const char *sql = "SELECT id, topic_id, start, duration, description FROM work ORDER BY start;";
-	sqlite3_stmt *pstmt;
-	result = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);
-	if (result != SQLITE_OK) {
-		sqlite3_finalize(pstmt);
-		return TRCKR_ERR_SQL;
-	}
-
-	int i = 0;
-	for (int i = 0; i < count; i++) 
-	{
-		result = sqlite3_step(pstmt);
-		if (result == SQLITE_DONE) {
-			break;
-		}
-
-		if (result != SQLITE_ROW) {
-			sqlite3_finalize(pstmt);
-			return TRCKR_ERR_SQL;
-		}
-
-		if (work != NULL)
-		{
-			work->id = sqlite3_column_int(pstmt, 0);
-			work->topic_id = sqlite3_column_int(pstmt, 1);
-			work->start = sqlite3_column_int(pstmt, 2);
-			work->duration = sqlite3_column_int(pstmt, 3);
-			snprintf(work->description, sizeof(work->description), "%s", sqlite3_column_text(pstmt, 4));
-		}
-		
-		result = callback();
-		if (result == TRCKR_ITERATION_DONE) {
-			break;
-		}
-
-		if (result != 0) {
-			// error occured
-			sqlite3_finalize(pstmt);
-			return result;
-		}
-	}
-	
 	sqlite3_finalize(pstmt);
 	return 0;
 }
@@ -512,6 +501,24 @@ query_rollback(struct trckr_ctx* context)
 }
 
 int
+query_is_last_work_of_stack(struct trckr_ctx* context, int stack_id, int work_id, int *out_result)
+{
+	// TODO
+}
+
+int
+query_has_work_overlap(struct trckr_ctx* context, time_t start, int duration, int *out_result)
+{
+	// TODO
+}
+
+int
+query_iterate_stack(struct trckr_ctx* context, int stack_id, struct data_work* work, int(*callback)())
+{
+	// TODO
+}
+
+int
 query_commit(struct trckr_ctx* context)
 {
 	if (context->transaction_depth > 1) {
@@ -605,6 +612,7 @@ query_iterate_work_day(struct trckr_ctx* context, int skip, struct data_work *wo
 		work->duration = sqlite3_column_int(pstmt, 3);
 		result = trckr_parse_text(sqlite3_column_text(pstmt, 4), work->description);
 		if (result != 0) {
+			sqlite3_finalize(pstmt);
 			return result;
 		}
 

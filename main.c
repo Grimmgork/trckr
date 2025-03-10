@@ -285,7 +285,7 @@ cmd_start(struct trckr_ctx* context, int argc, char* argv[])
 	}
 	
 	int id;
-	return trckr_start_work(context, topic.id, description, timestamp, &id);
+	return trckr_start_work(context, topic.id, description, &id);
 }
 
 int

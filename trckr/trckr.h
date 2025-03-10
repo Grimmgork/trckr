@@ -70,7 +70,7 @@ int trckr_get_topic_by_id(struct trckr_ctx *context, int id, struct data_work_to
 int trckr_get_open_work(struct trckr_ctx *context, struct data_work *out_work);
 int trckr_get_work_by_id(struct trckr_ctx *context, int id, struct data_work *out_work);
 
-int trckr_start_work(struct trckr_ctx *context, int topic_id, trckr_text description, time_t time, int *out_id);
+int trckr_start_work(struct trckr_ctx *context, int topic_id, trckr_text description, int *out_id);
 int trckr_stop_work(struct trckr_ctx *context, time_t time);
 int trckr_create_topic(struct trckr_ctx *context, trckr_text_small name, trckr_text description);
 int trckr_iterate_topics_by_name(struct trckr_ctx *context, trckr_text_small name, struct data_work_topic *topic, int (*callback)());
