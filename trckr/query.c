@@ -497,7 +497,7 @@ query_commit(struct trckr_ctx* context)
 }
 
 int
-query_is_last_work_of_stack(struct trckr_ctx* context, int stack_id, int work_id, int *out_result)
+query_is_last_work_of_stack(struct trckr_ctx* context, int work_id, int *out_result)
 {
 	// TODO
 }
@@ -513,8 +513,6 @@ query_iterate_stack(struct trckr_ctx* context, int stack_id, struct data_work* w
 {
 	// TODO
 }
-
-
 
 int
 query_update_work_time(struct trckr_ctx* context, int id, int start, int duration)

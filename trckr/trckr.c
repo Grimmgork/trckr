@@ -163,6 +163,18 @@ trckr_start_work(struct trckr_ctx *context, int topic_id, trckr_text description
 		return TRCKR_ERR_NO_SELECTION;
 	}
 
+	int out;
+	result = query_is_last_work_of_stack(context, context->work_id, &out);
+	if (result != 0) {
+		query_rollback(context);
+		return result;
+	}
+
+	if (!out) {
+		query_rollback(context);
+		return TRCKR_ERR_INVALID_OPERATION;
+	}
+
 	result = query_get_work_by_id(context, context->work_id, &work);
 	if (result != TRCKR_NOT_FOUND) {
 		query_rollback(context);
@@ -177,6 +189,12 @@ trckr_start_work(struct trckr_ctx *context, int topic_id, trckr_text description
 	}
 
 	return query_commit(context);
+}
+
+int
+trckr_start_stack(struct trckr_ctx *context, time_t time, int topic_id, trckr_text description, int *out_id)
+{
+	
 }
 
 int

@@ -18,6 +18,7 @@
 #define TRCKR_ERR_TEXT_TOO_LONG 11 + TRCKR_OFFSET
 #define TRCKR_ERR_TRANSACTION_DEPTH 12 + TRCKR_OFFSET
 #define TRCKR_ERR_NO_SELECTION 13 + TRCKR_OFFSET
+#define TRCKR_ERR_INVALID_OPERATION 14 + TRCKR_OFFSET
 
 typedef char trckr_text[256];
 typedef char trckr_text_small[16];
@@ -76,6 +77,7 @@ int trckr_stop_work(struct trckr_ctx *context, time_t time);
 int trckr_create_topic(struct trckr_ctx *context, trckr_text_small name, trckr_text description);
 int trckr_iterate_topics_by_name(struct trckr_ctx *context, trckr_text_small name, struct data_work_topic *topic, int (*callback)());
 int trckr_iterate_last_work(struct trckr_ctx *context, struct data_work *work, int count, int (*callback)());
+int trckr_start_stack(struct trckr_ctx *context, time_t time, int topic_id, trckr_text description, int *out_id);
 
 int trckr_parse_text(const char* str, trckr_text buffer);
 int trckr_parse_text_small(const char* str, trckr_text_small buffer);

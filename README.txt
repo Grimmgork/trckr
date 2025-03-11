@@ -8,13 +8,21 @@ trckr stop [time]    // stop open work at time
 
 trckr pop   // removes the work at the cursor
 
+trckr create stack [timestamp]
+trckr remove stack
+
 trckr work [date]
 trckr work week
 trckr work month
 
+trckr status
+
 trckr select open // select open work
 trckr select [date] // selects the last work at the first stack of the day
 trckr select [n] // selects the nth work at the currently selected date
+
+trckr create topic [name] [description]
+trckr remove topic [name]
 
 starttime and duration shall be used.
 The minimum time interval shall be set down to 5 min.

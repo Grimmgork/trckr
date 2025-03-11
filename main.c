@@ -51,6 +51,7 @@ get_error_message(int error) {
 		case TRCKR_ERR_INVALID_INPUT: return "Invalid input.";
 		case TRCKR_ERR_TEXT_TOO_LONG: return "Text is too long.";
 		case TRCKR_ERR_NO_SELECTION: return "No work selected.";
+		case TRCKR_ERR_INVALID_OPERATION: return "Invalid operation.";
 		default: return "Unknown error occured.";
 	}
 }
