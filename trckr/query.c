@@ -298,37 +298,6 @@ query_get_topic_by_id(struct trckr_ctx *context, int id, struct data_work_topic*
 }
 
 int
-query_get_topic_id_by_name(struct trckr_ctx *context, trckr_text_small name, int* out_id)
-{
-	int result;
-	const char *sql = "SELECT id FROM topic WHERE name = ?1;";
-	sqlite3_stmt *pstmt;
-	result = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);
-	if (result != SQLITE_OK) {
-		sqlite3_finalize(pstmt);
-		return TRCKR_ERR_SQL;
-	}
-
-	sqlite3_bind_text(pstmt, 1, name, -1, NULL);
-	result = sqlite3_step(pstmt);
-
-	if (result == SQLITE_DONE)
-	{
-		sqlite3_finalize(pstmt);
-		return TRCKR_NOT_FOUND;
-	}
-
-	if (result != SQLITE_ROW) {
-		sqlite3_finalize(pstmt);
-		return TRCKR_ERR_SQL;
-	}
-
-	*out_id = sqlite3_column_int(pstmt, 0);
-	sqlite3_finalize(pstmt);
-	return 0;
-}
-
-int
 query_get_topic_by_name(struct trckr_ctx *context, trckr_text_small name, struct data_work_topic* out_topic)
 {
 	int result;
@@ -501,24 +470,6 @@ query_rollback(struct trckr_ctx* context)
 }
 
 int
-query_is_last_work_of_stack(struct trckr_ctx* context, int stack_id, int work_id, int *out_result)
-{
-	// TODO
-}
-
-int
-query_has_work_overlap(struct trckr_ctx* context, time_t start, int duration, int *out_result)
-{
-	// TODO
-}
-
-int
-query_iterate_stack(struct trckr_ctx* context, int stack_id, struct data_work* work, int(*callback)())
-{
-	// TODO
-}
-
-int
 query_commit(struct trckr_ctx* context)
 {
 	if (context->transaction_depth > 1) {
@@ -544,6 +495,26 @@ query_commit(struct trckr_ctx* context)
 	sqlite3_finalize(pstmt);
 	return 0;
 }
+
+int
+query_is_last_work_of_stack(struct trckr_ctx* context, int stack_id, int work_id, int *out_result)
+{
+	// TODO
+}
+
+int
+query_has_work_overlap(struct trckr_ctx* context, time_t start, int duration, int *out_result)
+{
+	// TODO
+}
+
+int
+query_iterate_stack(struct trckr_ctx* context, int stack_id, struct data_work* work, int(*callback)())
+{
+	// TODO
+}
+
+
 
 int
 query_update_work_time(struct trckr_ctx* context, int id, int start, int duration)
@@ -664,9 +635,8 @@ query_load_context(struct trckr_ctx* context)
 int
 query_write_context(struct trckr_ctx* context)
 {
-	// TODO sql wrong
-	const char *sql = "INSERT INTO context(selected_work_id) VALUES(?1) \
-	                   ON CONFLICT(rowid) DO UPDATE SET selected_work_id=?1 FROM context WHERE rowid = 0;";
+	const char *sql = "INSERT INTO context(rowid, selected_work_id) VALUES(1, ?1) \
+	                   ON CONFLICT(rowid) DO UPDATE SET selected_work_id=?1 WHERE rowid = 1;";
 	int result;
 	sqlite3_stmt *pstmt;
 	result = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);

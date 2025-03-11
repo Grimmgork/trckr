@@ -10,8 +10,10 @@
 int
 trckr_parse_text(const char* str, trckr_text buffer)
 {
-	assert(str != NULL);
 	assert(buffer != NULL);
+	if (str == NULL) {
+		str = "";
+	}
 
 	int length = strlen(str);
 	if (length + 1 > sizeof(trckr_text))
@@ -26,8 +28,10 @@ trckr_parse_text(const char* str, trckr_text buffer)
 int
 trckr_parse_text_small(const char* str, trckr_text_small buffer)
 {
-	assert(str != NULL);
 	assert(buffer != NULL);
+	if (str == NULL) {
+		str = "";
+	}
 
 	int length = strlen(str);
 	if (length + 1 > sizeof(trckr_text_small))
@@ -68,7 +72,7 @@ trckr_begin(char *path, struct trckr_ctx* out_context)
 }
 
 int
-trckr_end(struct trckr_ctx *context)
+trckr_end_commit(struct trckr_ctx *context)
 {
 	int result = query_write_context(context);
 	if (result != 0) {
@@ -222,6 +226,7 @@ trckr_create_topic(struct trckr_ctx *context, trckr_text_small name, trckr_text 
 		query_rollback(context);
 		return TRCKR_ERR_NAME_TAKEN;
 	}
+
 	if (result != TRCKR_NOT_FOUND) {
 		query_rollback(context);
 		return result;
@@ -232,6 +237,8 @@ trckr_create_topic(struct trckr_ctx *context, trckr_text_small name, trckr_text 
 		query_rollback(context);
 		return result;
 	}
+
+	printf("asd\n");
 
 	return query_commit(context);
 }

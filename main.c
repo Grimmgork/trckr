@@ -181,16 +181,17 @@ main(int argc, char *argv[])
 		);
 	}
 
-	if (result == 0) {
-		result = trckr_end(&context);
-	}
-	
-	if (result != 0)
+	if (result == 0)
 	{
-		print_error_message(result);
-		trckr_end_rollback(&context);
+		result = trckr_end_commit(&context);
+		if (result == 0) {
+			arena_free(arena);
+			return 0;
+		}
 	}
-	
+
+	print_error_message(result);
+	trckr_end_rollback(&context);
 	arena_free(arena);
 	return result;
 }
@@ -228,7 +229,6 @@ cmd_route(struct trckr_ctx* context, char* name, int argc, char *argv[], int cou
 int
 cmd_status(struct trckr_ctx* context, int argc, char *argv[])
 {
-	printf("asdf");
 	return 0;
 }
 

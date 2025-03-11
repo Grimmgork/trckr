@@ -63,7 +63,7 @@ int trckr_initialize(char* path);
 
 int trckr_begin(char* path, struct trckr_ctx* out_context);
 void trckr_end_rollback(struct trckr_ctx* context); // TODO implement nested transactions
-int trckr_end(struct trckr_ctx* context);
+int trckr_end_commit(struct trckr_ctx* context);
 
 int trckr_get_topic_by_name(struct trckr_ctx *context, trckr_text_small name, struct data_work_topic *out_topic);
 int trckr_get_topic_by_id(struct trckr_ctx *context, int id, struct data_work_topic *out_topic);
