@@ -8,13 +8,12 @@ trckr stop [time]    // stop open work at time
 
 trckr pop   // removes the work at the cursor
 
-trckr status
-
 trckr work [date]
 trckr work week
 trckr work month
 
-trckr select date // selects the last work at the first stack of the day
+trckr select open // select open work
+trckr select [date] // selects the last work at the first stack of the day
 trckr select [n] // selects the nth work at the currently selected date
 
 starttime and duration shall be used.

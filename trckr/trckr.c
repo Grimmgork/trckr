@@ -158,8 +158,13 @@ trckr_start_work(struct trckr_ctx *context, int topic_id, trckr_text description
 		return result;
 	}
 
+	if (context->work_id == 0) {
+		query_rollback(context);
+		return TRCKR_ERR_NO_SELECTION;
+	}
+
 	result = query_get_work_by_id(context, context->work_id, &work);
-	if (result != 0) {
+	if (result != TRCKR_NOT_FOUND) {
 		query_rollback(context);
 		return result;
 	}

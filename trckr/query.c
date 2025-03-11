@@ -7,7 +7,7 @@ query_create_schema(sqlite3 *db)
 	const char *sql = "CREATE TABLE IF NOT EXISTS topic(id INTEGER PRIMARY KEY, name TEXT UNIQUE, description TEXT); \
 	                   CREATE TABLE IF NOT EXISTS work(id INTEGER PRIMARY KEY, stack_id INTEGER, topic_id INTEGER, start INTEGER, duration INTEGER, description TEXT); \
 					   CREATE Table IF NOT EXISTS stack(id INTEGER PRIMARY KEY); \
-					   CREATE TABLE IF NOT EXISTS context(selected_work_id INTEGER);";
+					   CREATE TABLE IF NOT EXISTS context(id INTEGER PRIMARY KEY, selected_work_id INTEGER);";
 	int result = sqlite3_exec(db, sql, 0, 0, NULL);
 	if (result != SQLITE_OK) {
 		return TRCKR_ERR_SQL;
@@ -604,7 +604,7 @@ query_iterate_work_day(struct trckr_ctx* context, int skip, struct data_work *wo
 int
 query_load_context(struct trckr_ctx* context)
 {
-	const char *sql = "SELECT selected_work_id FROM context WHERE rowid = 0;";
+	const char *sql = "SELECT selected_work_id FROM context WHERE rowid = 1;";
 	int result;
 	sqlite3_stmt *pstmt;
 	result = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);
@@ -635,8 +635,8 @@ query_load_context(struct trckr_ctx* context)
 int
 query_write_context(struct trckr_ctx* context)
 {
-	const char *sql = "INSERT INTO context(rowid, selected_work_id) VALUES(1, ?1) \
-	                   ON CONFLICT(rowid) DO UPDATE SET selected_work_id=?1 WHERE rowid = 1;";
+	const char *sql = "INSERT INTO context(id, selected_work_id) VALUES(1, ?1) \
+	                   ON CONFLICT(id) DO UPDATE SET selected_work_id=?1 WHERE id = 1;";
 	int result;
 	sqlite3_stmt *pstmt;
 	result = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);
@@ -644,6 +644,8 @@ query_write_context(struct trckr_ctx* context)
 		sqlite3_finalize(pstmt);
 		return TRCKR_ERR_SQL;
 	}
+
+	sqlite3_bind_int(pstmt, 1, context->work_id);
 
 	result = sqlite3_step(pstmt);
 	if (result != SQLITE_DONE) {

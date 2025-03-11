@@ -50,6 +50,7 @@ get_error_message(int error) {
 		case TRCKR_ERR_NAME_TAKEN: return "Name is taken.";
 		case TRCKR_ERR_INVALID_INPUT: return "Invalid input.";
 		case TRCKR_ERR_TEXT_TOO_LONG: return "Text is too long.";
+		case TRCKR_ERR_NO_SELECTION: return "No work selected.";
 		default: return "Unknown error occured.";
 	}
 }
@@ -125,7 +126,7 @@ prompt_line(char *str, int n)
 
 	int result = 0;
 	// clear the buffer / read until newline
-	while(!(c == '\n' || c == EOF)) {
+	while (!(c == '\n' || c == EOF)) {
 		result = ERR_INVALID_INPUT;
 		c = getc(stdin);
 	}

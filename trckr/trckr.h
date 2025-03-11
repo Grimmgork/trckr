@@ -17,6 +17,7 @@
 #define TRCKR_ITERATION_DONE 10 + TRCKR_OFFSET
 #define TRCKR_ERR_TEXT_TOO_LONG 11 + TRCKR_OFFSET
 #define TRCKR_ERR_TRANSACTION_DEPTH 12 + TRCKR_OFFSET
+#define TRCKR_ERR_NO_SELECTION 13 + TRCKR_OFFSET
 
 typedef char trckr_text[256];
 typedef char trckr_text_small[16];
