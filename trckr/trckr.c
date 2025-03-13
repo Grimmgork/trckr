@@ -286,7 +286,7 @@ sub_shift_start_times(struct trckr_ctx *context, int stack_id, int shift, int sk
 	}
 
 	struct data_work work;
-	int query_iterate_callback()
+	int callback()
 	{
 		struct data_work *alloc = trckr_list_push(list, sizeof(struct data_work));
 		if (alloc == NULL) {
@@ -298,15 +298,10 @@ sub_shift_start_times(struct trckr_ctx *context, int stack_id, int shift, int sk
 		alloc->start = work.start;
 		alloc->duration = work.duration;
 
-		int result = trckr_parse_text(work.description, alloc->description);
-		if (result != 0) {
-			return result;
-		}
-
-		return 0;
+		return trckr_parse_text(work.description, alloc->description);
 	}
 
-	result = query_iterate_work_day(context, skip, &work, query_iterate_callback);
+	result = query_iterate_work_by_stack(context, stack_id, skip, &work, callback);
 	if (result != 0) {
 		trckr_list_free(list);
 		return result;

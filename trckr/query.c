@@ -509,9 +509,54 @@ query_has_work_overlap(struct trckr_ctx* context, time_t start, int duration, in
 }
 
 int
-query_iterate_stack(struct trckr_ctx* context, int stack_id, struct data_work* work, int(*callback)())
+query_iterate_work_by_stack(struct trckr_ctx* context, int stack_id, int skip, struct data_work* work, int(*callback)())
 {
-	// TODO
+	assert(work != NULL);
+	assert(callback != NULL);
+	assert(skip >= 0);
+
+	int result;
+	const char *sql = "SELECT id, stack_id, topic_id, start, duration, description FROM work WHERE stack_id=?1 ORDER BY start SKIP ?2;";
+	sqlite3_stmt *pstmt;
+	result = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);
+	if (result != SQLITE_OK) {
+		sqlite3_finalize(pstmt);
+		return TRCKR_ERR_SQL;
+	}
+
+	sqlite3_bind_int(pstmt, 1, stack_id);
+	sqlite3_bind_int(pstmt, 2, skip);
+
+	result = sqlite3_step(pstmt);
+	while (result == SQLITE_ROW)
+	{
+		work->id = sqlite3_column_int(pstmt, 0);
+		work->stack_id = sqlite3_column_int(pstmt, 1);
+		work->topic_id = sqlite3_column_int(pstmt, 2);
+		work->start = sqlite3_column_int(pstmt, 3);
+		work->duration = sqlite3_column_int(pstmt, 4);
+		result = trckr_parse_text(sqlite3_column_text(pstmt, 5), work->description);
+		if (result != 0) {
+			sqlite3_finalize(pstmt);
+			return result;
+		}
+
+		result = callback();
+		if (result == TRCKR_ITERATION_DONE) {
+			sqlite3_finalize(pstmt);
+			return 0;
+		}
+
+		result = sqlite3_step(pstmt);
+	}
+
+	if (result != SQLITE_DONE) {
+		sqlite3_finalize(pstmt);
+		return TRCKR_ERR_SQL;
+	}
+
+	sqlite3_finalize(pstmt);
+	return 0;
 }
 
 int
@@ -541,14 +586,14 @@ query_update_work_time(struct trckr_ctx* context, int id, int start, int duratio
 }
 
 int
-query_iterate_work_day(struct trckr_ctx* context, int skip, struct data_work *work, int(*callback)())
+query_iterate_work(struct trckr_ctx* context, time_t from, time_t to, struct data_work *work, int(*callback)())
 {
 	assert(work != NULL);
 	assert(callback != NULL);
-	assert(skip >= 0);
+	assert(from < to);
 
 	int result;
-	const char *sql = "SELECT id, topic_id, start, duration, description FROM work WHERE start > ?1 AND start < ?2 ORDER BY start SKIP ?3;";
+	const char *sql = "SELECT id, stack_id, topic_id, start, duration, description FROM work WHERE start > ?1 AND start < ?2 ORDER BY start;";
 	sqlite3_stmt *pstmt;
 	result = sqlite3_prepare_v3(context->db, sql, -1, 0, &pstmt, NULL);
 	if (result != SQLITE_OK) {
@@ -556,30 +601,18 @@ query_iterate_work_day(struct trckr_ctx* context, int skip, struct data_work *wo
 		return TRCKR_ERR_SQL;
 	}
 
-	int start = 0;// context->day * 86400;
-	int end = 0;// (context->day + 1) * 86400;
+	sqlite3_bind_int(pstmt, 1, from);
+	sqlite3_bind_int(pstmt, 2, to);
 
-	sqlite3_bind_int(pstmt, 1, start);
-	sqlite3_bind_int(pstmt, 2, end);
-	sqlite3_bind_int(pstmt, 3, skip);
-
-	while (1)
+	result = sqlite3_step(pstmt);
+	while (result == SQLITE_ROW)
 	{
-		result = sqlite3_step(pstmt);
-		if (result == SQLITE_DONE) {
-			break;
-		}
-
-		if (result != SQLITE_ROW) {
-			sqlite3_finalize(pstmt);
-			return TRCKR_ERR_SQL;
-		}
-
 		work->id = sqlite3_column_int(pstmt, 0);
-		work->topic_id = sqlite3_column_int(pstmt, 1);
-		work->start = sqlite3_column_int(pstmt, 2);
-		work->duration = sqlite3_column_int(pstmt, 3);
-		result = trckr_parse_text(sqlite3_column_text(pstmt, 4), work->description);
+		work->stack_id = sqlite3_column_int(pstmt, 1);
+		work->topic_id = sqlite3_column_int(pstmt, 2);
+		work->start = sqlite3_column_int(pstmt, 3);
+		work->duration = sqlite3_column_int(pstmt, 4);
+		result = trckr_parse_text(sqlite3_column_text(pstmt, 5), work->description);
 		if (result != 0) {
 			sqlite3_finalize(pstmt);
 			return result;
@@ -591,12 +624,16 @@ query_iterate_work_day(struct trckr_ctx* context, int skip, struct data_work *wo
 			return 0;
 		}
 
-		if (result != 0) {
-			// error occured
-			sqlite3_finalize(pstmt);
-			return result;
-		}
+		result = sqlite3_step(pstmt);
 	}
+
+	if (result != SQLITE_DONE) {
+		sqlite3_finalize(pstmt);
+		return TRCKR_ERR_SQL;
+	}
+
+	sqlite3_finalize(pstmt);
+	return 0;
 }
 
 int
